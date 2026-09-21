@@ -75,8 +75,8 @@ Infrastructure Adapters
 | Material | 文件元数据、生命周期、解析状态和失败重试 | PostgreSQL + 原始文件存储 |
 | Evidence | 可定位的字段、片段、来源和版本 | 材料解析结果及业务记录 |
 | Risk | 确定性规则结果、严重程度和证据关联 | 规则输入与版本 |
-| Recommendation | AI 辅助生成的结构化建议草稿 | 经校验的模型输出 |
-| Approval | 人工批准/驳回命令和业务状态变化 | 具备权限的用户命令 |
+| Recommendation | 基于已完成分析独立生成结构化建议草稿，失败不抹去规则结果 | 经校验的模型输出 |
+| Approval | 补证协作、人工批准/驳回命令和业务状态变化 | 具备权限的用户命令 |
 | Audit | 关键动作、操作者、时间、结果和关联对象 | 只追加的审计记录 |
 | Retrieval（未来） | 制度分块、Embedding、Top-K 和引用 | 版本化制度材料 |
 | Review Agent（未来） | 调用只读工具并组织证据与草稿 | 受约束运行上下文 |
@@ -113,6 +113,8 @@ HTTP 请求
 
 模型建议不会进入这条命令链路充当授权凭证。具体边界见 `docs/adr/ADR-002-llm-cannot-directly-approve.md`。
 
+审批人需要补证时，审批任务保持 `PENDING`，申请保持 `SUBMITTED`。同一任务最多一个 `OPEN` 补证请求；申请人只能追加与该请求关联的新材料，不能覆盖历史材料或修改核心申请字段。补证响应触发新的分析版本；若审批人放弃补证，必须先取消请求才能作出最终决定。
+
 ### 6.3 材料处理（未来）
 
 ```text
@@ -140,7 +142,9 @@ MVP 可以使用进程内 `AFTER_COMMIT + @Async`，但必须承认进程崩溃�
   -> 等待人工决定
 ```
 
-模型超时、格式错误、引用不存在或证据不足时，结果进入失败、待补充或人工复核状态，不得自动转换成批准。
+Evidence/Rule 分析与 Recommendation 使用独立状态。证据和确定性风险已完成时，Recommendation 的模型超时、格式错误或引用校验失败只使 Recommendation 失败，不得抹去分析结果，更不得自动转换成批准。
+
+首次提交会创建一个包含材料与制度版本快照的 `PENDING` Analysis Run。快照材料全部进入 `READY/FAILED` 后才执行；失败材料按不可用证据处理。补证响应创建新的 Run，不覆盖历史风险、建议和引用。
 
 ## 7. LLM 和 Agent 信任边界
 
@@ -191,7 +195,7 @@ MVP 可以使用进程内 `AFTER_COMMIT + @Async`，但必须承认进程崩溃�
 7. 只读 Tool 的受约束 Agent 和审批草稿。
 8. 根据评测决定是否增加 Elasticsearch、RRF、Rerank、SSE 或更可靠的任务基础设施。
 
-详细 Story 和依赖关系见 `docs/BACKLOG.md`。任何外部参考实现都必须服从当前产品范围和评测结果。
+可验收需求见 `docs/REQUIREMENTS.md`，详细 Story 和依赖关系见 `docs/BACKLOG.md`。任何外部参考实现都必须服从当前产品范围和评测结果。
 
 ## 12. 需要后续 ADR 决定的事项
 
