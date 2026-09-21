@@ -2,7 +2,7 @@
 
 ## 1. 文档目的
 
-本文定义据衡 MVP 要解决的问题、明确不做的内容和分阶段交付边界。`docs/REQUIREMENTS.md` 将范围转化为可验收需求，`docs/BACKLOG.md` 再把需求拆成 User Story；本文不表示所有能力已经实现。
+本文定义据衡 MVP 要解决的问题、明确不做的内容和分阶段交付边界。`docs/REQUIREMENTS.md` 将范围转化为可验收需求，`docs/BACKLOG.md` 管理 Story 路线，`docs/USER_STORIES.md` 描述近期 Story 的详细验收行为；本文不表示所有能力已经实现。
 
 ## 2. 当前阶段范围
 
