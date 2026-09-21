@@ -2,7 +2,13 @@
 
 ## 1. 文档状态
 
+- 状态：Baselined
+- 版本：1.0
+- 当前设计基线：R1 采购授权核心
+
 本文描述据衡的目标架构、依赖方向和安全边界，不表示这些组件已经实现。当前仓库只有 Spring Boot 项目骨架；任何数据库、对象存储、RAG 或 Agent 组件都必须由对应 User Story 按需引入。
+
+本轮只把已经确认的 R1 需求收敛为架构基线。R2 证据智能和 R3 受约束 Agent 继续保留为目标方向，不在 R1 中提前建立领域类、数据库表、接口或基础设施。
 
 ## 2. 架构目标
 
@@ -50,7 +56,7 @@ Domain Model and Rules
         ^
         |
 Infrastructure Adapters
-  ├─ JPA / PostgreSQL
+  ├─ MyBatis-Plus / PostgreSQL
   ├─ Object Storage
   ├─ Document Parser
   ├─ Retrieval
@@ -59,14 +65,25 @@ Infrastructure Adapters
 
 - **Web 层**：处理协议、请求校验、认证上下文和响应映射，不编排核心业务状态。
 - **Application 层**：实现用例、事务边界、权限检查、幂等、领域对象协调和审计写入。
-- **Domain 层**：保存状态机、值对象和确定性业务规则，不依赖 Web、JPA 或模型 SDK。
+- **Domain 层**：保存状态机、值对象和确定性业务规则，不依赖 Web、MyBatis-Plus、数据库或模型 SDK。
 - **Infrastructure 层**：实现数据库、文件、解析器、检索和模型等端口，不把供应商类型泄漏进领域模型。
 
 基础设施可以依赖应用或领域定义的端口；领域层不能反向依赖基础设施。项目不要求为每个简单类机械创建接口，只有真实的边界或替换需求才抽象端口。
 
+### 4.1 R1 分层职责基线
+
+| 层次 | R1 职责 | 明确不负责 |
+| --- | --- | --- |
+| Web | HTTP 协议、输入格式校验、取得可信认证上下文、调用用例、映射响应与错误 | 不直接修改领域状态，不拼接数据库事务，不信任请求体身份 |
+| Application | 用例编排、事务边界、身份与数据范围授权、幂等、路由协调、跨聚合一致性和审计写入 | 不判断领域状态转换是否合法，不承载 HTTP 细节，不依赖具体 Persistence/MyBatis-Plus 实现 |
+| Domain | 聚合、业务状态校验与转换、金额计算、值对象和确定性业务不变量 | 不读取 `CurrentUser`，不依赖 Spring Web、MyBatis-Plus、数据库、认证 SDK 或模型 SDK |
+| Infrastructure | Repository/端口实现、MyBatis-Plus Mapper、PostgreSQL、时钟和认证适配 | 不绕过 Application 直接改变业务状态，不向 Domain 泄漏 Persistence DO、Mapper 或框架类型 |
+
+R1 允许 Application Service 在一个本地数据库事务中协调多个聚合，因为提交和审批天然需要同时更新申请、任务、决定、幂等记录和审计。该选择不等于允许领域对象相互任意修改；聚合之间只通过标识关联，由应用用例显式协调。
+
 ## 5. 业务模块
 
-模块名是职责边界，不是要求现在一次性创建的包结构。
+模块名首先是职责边界，不要求现在一次性创建全部包和类。进入实现后，包组织优先按业务模块划分，再在模块内部按职责分层，而不是按技术角色建立全局 `controller/service/mapper/entity` 目录。
 
 | 模块 | 职责 | 核心事实来源 |
 | --- | --- | --- |
@@ -83,6 +100,46 @@ Infrastructure Adapters
 
 聊天内容和 Agent Memory 只用于交互，不是上述业务模块的事实源。
 
+### 5.1 R1 模块基线
+
+R1 只激活以下职责模块；模块名表达边界，不强制立即创建同名顶级包：
+
+| R1 模块 | 主要模型/端口 | 依赖规则 |
+| --- | --- | --- |
+| Identity | `CurrentUser`、`UserId`、`Role`、当前用户提供端口 | 只提供可信运行时身份；R1 不建立持久化 User Aggregate 或组织平台 |
+| Procurement | `ProcurementRequest`、`ProcurementItem`、金额与品类值语义 | 不直接创建或修改审批决定；只维护采购申请自身状态和不变量 |
+| Approval | `ApprovalTask`、`ApprovalDecision`、路由策略 | 通过 `requestId` 关联申请；不直接持有或修改采购申请对象 |
+| Audit | `AuditEvent`、只追加审计端口 | 独立于业务聚合；普通业务用例不能更新或删除既有事件 |
+| Common | 业务标识、时钟抽象、分页和稳定错误语义中的最小共享部分 | 不成为堆放任意工具类的公共包，不反向依赖业务模块 |
+
+`IdempotencyRecord` 属于 Application/Persistence 支撑模型，用于保护重要命令，不作为采购领域概念对用户暴露。跨模块流程由 Application 用例协调，Domain 模块之间不形成双向依赖。
+
+### 5.2 包组织原则
+
+以下结构表达 R1 的推荐方向，具体子包只在对应 Story 确实需要时创建：
+
+```text
+io.github.yche18.juhengbackend
+├─ procurement
+│  ├─ web
+│  ├─ application
+│  ├─ domain
+│  └─ infrastructure
+│     └─ persistence
+├─ approval
+│  ├─ web
+│  ├─ application
+│  ├─ domain
+│  └─ infrastructure
+├─ identity
+├─ audit
+└─ common
+```
+
+Controller、DTO、Application Service、Mapper 和 Persistence DO 仍然存在，但归属于各自业务模块。`common` 只放稳定且确实跨模块的最小概念，不作为通用工具和业务逻辑的收容目录。
+
+Web/Security Adapter 通过可信认证适配器解析 `CurrentUser`，并将其作为不可由请求体覆盖的上下文传给 Application。Application 在应用边界完成角色和数据范围授权，再把领域行为真正需要的 `UserId` 或其他业务值显式传入 Domain。Domain 不主动读取 `CurrentUser`，也不注入 `CurrentUserProvider`。
+
 ## 6. 核心请求流程
 
 ### 6.1 创建或修改草稿
@@ -91,8 +148,8 @@ Infrastructure Adapters
 HTTP 请求
   -> Web 参数校验
   -> 从认证上下文取得用户身份
-  -> Application Service 校验所有权和当前状态
-  -> Domain 执行确定性变更
+  -> Application Service 校验角色、所有权和数据范围并加载聚合
+  -> Domain 校验当前业务状态和不变量并执行确定性变更
   -> Repository 持久化
   -> 返回资源及版本信息
 ```
@@ -103,10 +160,10 @@ HTTP 请求
 
 ```text
 明确的用户命令 + 幂等键
-  -> 身份与权限校验
-  -> 当前状态与版本校验
-  -> 输入及业务规则校验
-  -> Domain 状态转换
+  -> Application 身份、权限、幂等和数据范围校验
+  -> Application 加载聚合并协调事务
+  -> Domain 校验当前业务状态、输入业务规则并执行状态转换
+  -> Persistence 执行版本条件更新和唯一约束保护
   -> 同一数据库事务保存状态与审计记录
   -> 返回已提交的结果
 ```
@@ -168,6 +225,20 @@ Evidence/Rule 分析与 Recommendation 使用独立状态。证据和确定性�
 - 幂等键应绑定操作类型、业务对象和调用者，重复请求返回原结果或明确的进行中状态。
 - 并发更新使用版本或条件更新防止重复审批和丢失更新；具体策略在对应 Story 中确定。
 
+### 8.1 R1 事务边界
+
+| 用例 | 同一数据库事务内的结果 | 失败不变量 |
+| --- | --- | --- |
+| 创建草稿 | 采购申请、采购项、汇总金额、创建审计 | 申请与审计不得部分成功 |
+| 修改草稿 | 申请新版本、采购项、重算总额、修改审计 | 旧版本冲突不得覆盖已提交结果；校验失败不保存部分采购项 |
+| 提交申请 | 幂等记录、申请转为 `SUBMITTED`、一个 `PENDING` 任务、提交/分配审计 | 路由失败、并发冲突或持久化失败时申请保持原状态，不留下孤立任务 |
+| 批准/驳回 | 幂等记录、任务终态、申请终态、唯一决定、审计 | 最多一个决定成功；上述记录必须同时提交或同时回滚 |
+| 查询列表/详情/审计 | 只读查询，Repository 自带用户或任务范围 | 不先加载无权数据再依赖前端过滤 |
+
+R1 的幂等键绑定调用者、操作、目标和请求指纹。相同载荷在已完成时返回已保存结果、仍执行时返回明确的进行中结果；不同载荷复用同一键返回冲突。具体持久化实现可以让并发请求等待首个事务后 replay，但必须依靠原子持久化约束或条件写入兜底，不能采用无约束的 `check-then-insert`。
+
+认证上下文来自事务外的可信适配器，但操作者 ID 必须在进入用例时固定，并随业务结果写入审计。R1 不包含对象存储或模型调用，因此上述重要写用例不涉及跨资源分布式事务。
+
 ## 9. 安全与审计
 
 - Web 层完成认证，Application 层按用例执行授权；Repository 查询同时包含必要的数据范围。
@@ -186,24 +257,45 @@ Evidence/Rule 分析与 Recommendation 使用独立状态。证据和确定性�
 
 ## 11. 演进顺序
 
-1. 服务启动、健康检查和统一错误。
-2. PostgreSQL、Flyway 和采购申请最小闭环。
-3. 最小认证授权、人工审批和审计。
-4. 材料上传、生命周期、解析与恢复。
-5. 制度检索基线和引用。
-6. 确定性风险规则与结构化 AI 解释。
-7. 只读 Tool 的受约束 Agent 和审批草稿。
-8. 根据评测决定是否增加 Elasticsearch、RRF、Rerank、SSE 或更可靠的任务基础设施。
+1. `US-000`：服务启动与健康检查。
+2. `US-001`：PostgreSQL 与 Flyway 基线。
+3. `US-002`：统一校验与错误响应。
+4. `US-003`：最小认证与可信 `CurrentUser`。
+5. `US-010`～`US-012`：采购申请草稿、查询和修改闭环。
+6. `US-013`～`US-016`：提交、人工审批和审计闭环。
+7. R2：材料上传、生命周期、解析、制度检索、证据分析和结构化建议。
+8. R3：只读 Tool 的受约束 Agent 和审批草稿。
+9. 根据评测决定是否增加 Elasticsearch、RRF、Rerank、SSE 或更可靠的任务基础设施。
 
-可验收需求见 `docs/REQUIREMENTS.md`，详细 Story 和依赖关系见 `docs/BACKLOG.md`。任何外部参考实现都必须服从当前产品范围和评测结果。
+可验收需求见 `docs/REQUIREMENTS.md`，详细 Story 和依赖关系见 `docs/BACKLOG.md`。R1 的聚合、关系和关键运行流程分别见 `docs/R1_DOMAIN_MODEL.md` 与 `docs/R1_SEQUENCE_DIAGRAMS.md`。任何外部参考实现都必须服从当前产品范围和评测结果。
 
-## 12. 需要后续 ADR 决定的事项
+## 12. 待决策事项（架构影响显著时建立 ADR）
 
-- 认证方式和组织/租户模型。
-- 采购申请及审批状态机的最终定义。
+### 12.1 对应 Story 的实施决策
+
+- `US-003` 的最小认证方式和演示身份初始化方式。
+- `US-013` 的单审批人路由策略和配置来源。
+- R1 是否需要任何 `ADMIN` 业务接口；当前只保留角色语义。
+
+这些事项应在对应 Story 进入 `READY` 前确定，但通常记录在 Story 实施计划即可，不强制单独建立 ADR。
+
+### 12.2 可能需要 ADR 的架构决策
+
+- 未来组织/租户模型。
 - 文件存储方案和保留策略。
 - 异步任务从进程内机制升级为 Outbox/MQ 的触发条件。
 - 解析文本、证据片段和模型输入输出的数据保留边界。
 - 向量模型、分块策略及检索评测门槛。
 
-在对应 Story 到来前，这些内容保持开放，不在启动阶段预先实现。
+只有存在多个合理方案、影响跨模块且未来改变成本明显时才建立 ADR。在对应 Story 到来前，这些内容保持开放，不在启动阶段预先实现。
+
+## 13. R1 设计产物与边界
+
+R1 设计基线由以下文档共同组成：
+
+- `docs/ARCHITECTURE.md`：模块、分层、依赖方向和事务边界。
+- `docs/R1_DOMAIN_MODEL.md`：领域概念、聚合、关系、状态和业务不变量。
+- `docs/R1_SEQUENCE_DIAGRAMS.md`：创建/修改、提交、批准/驳回三个关键运行流程。
+- `docs/USER_STORIES.md`：可以被测试验证的行为边界。
+
+该基线不包含 Persistence DO、Mapper、数据库 ERD、Flyway SQL、REST 路径、DTO 或具体锁实现。这些内容只在对应 User Story 启动时设计，且必须服从本基线；若实现发现基线无法满足验收条件，应先修正文档，并在架构影响显著时新增 ADR，而不是在代码中静默改变设计。
