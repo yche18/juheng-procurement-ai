@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及创建采购申请草稿的首个业务垂直切片。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建和本人范围查询。
 
 ## 本地要求
 
@@ -142,7 +142,27 @@ curl -u demo-requester:juheng-local \
 
 成功时返回 HTTP `201`。业务编号格式为 `PR-yyyyMMdd-序列值`；序列保证唯一但不承诺连续。当前受控品类为 `LAPTOP`、`MONITOR`、`OFFICE_CHAIR` 和 `SOFTWARE_LICENSE`。数量最多四位小数，单价和金额使用两位小数；每行按 `quantity × estimatedUnitPrice` 计算并以 `HALF_UP` 舍入，总额为各行舍入后金额之和。
 
-申请、采购项和 `PROCUREMENT_REQUEST_CREATED` 审计事件在同一个 PostgreSQL 事务中保存：任一写入失败时全部回滚。当前 Story 不包含草稿查询、修改、提交或审批接口。
+申请、采购项和 `PROCUREMENT_REQUEST_CREATED` 审计事件在同一个 PostgreSQL 事务中保存：任一写入失败时全部回滚。当前创建接口不包含修改、提交或审批能力。
+
+## 查看自己的采购申请
+
+具有 `REQUESTER` 角色的用户可以分页查看自己创建的申请。页码从 `0` 开始，默认每页 `20` 条，最大 `100` 条；结果固定按 `createdAt DESC, id DESC` 排序。`status` 可以省略，也可以使用 `DRAFT`、`SUBMITTED`、`APPROVED` 或 `REJECTED`：
+
+```shell
+curl -u demo-requester:juheng-local \
+  "http://localhost:8080/api/procurement-requests?page=0&size=20&status=DRAFT"
+```
+
+分页响应包含 `content`、`page`、`size`、`totalElements` 和 `totalPages`。列表只读取申请摘要，不逐条加载采购项。
+
+取得列表中的申请 ID 后，可以查看详情：
+
+```shell
+curl -u demo-requester:juheng-local \
+  http://localhost:8080/api/procurement-requests/替换为申请UUID
+```
+
+详情包含采购项、服务端计算金额、当前状态和版本。数据库查询会直接使用认证上下文中的用户 ID 限定 `creator_id`；客户端不能通过请求参数指定查询所有者。他人申请与不存在的申请统一返回 `404 RESOURCE_NOT_FOUND`，避免泄露资源是否存在。
 
 ## API 错误响应
 
@@ -169,6 +189,7 @@ API 使用稳定错误代码区分请求格式、字段校验、认证、授权�
 | `400` | `VALIDATION_FAILED` | 字段或参数不符合约束 |
 | `401` | `AUTHENTICATION_REQUIRED` | 请求缺少有效认证身份 |
 | `403` | `ACCESS_DENIED` | 当前身份没有操作权限 |
+| `404` | `RESOURCE_NOT_FOUND` | 当前数据范围内不存在目标资源 |
 | `409` | `BUSINESS_CONFLICT` | 请求与当前业务状态冲突 |
 | `500` | `INTERNAL_ERROR` | 未预期系统错误 |
 
@@ -190,4 +211,4 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1/V2、迁移校验以及重复执行不会再次应用已有版本；采购草稿集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段和事务回滚。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V3、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者范围、分页和详情查询。

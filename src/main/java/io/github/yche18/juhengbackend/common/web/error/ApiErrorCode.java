@@ -11,6 +11,7 @@ public enum ApiErrorCode
     VALIDATION_FAILED("Request validation failed"),
     AUTHENTICATION_REQUIRED("Authentication is required"),
     ACCESS_DENIED("Access is denied"),
+    RESOURCE_NOT_FOUND("Resource was not found"),
     BUSINESS_CONFLICT("Request conflicts with the current business state"),
     INTERNAL_ERROR("An unexpected error occurred");
 

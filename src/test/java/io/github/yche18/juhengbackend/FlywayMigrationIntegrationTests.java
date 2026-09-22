@@ -15,7 +15,7 @@ import org.testcontainers.utility.DockerImageName;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 使用真实 PostgreSQL 容器验证 Flyway 迁移链和 US-010 物理表。
+ * 使用真实 PostgreSQL 容器验证 Flyway 迁移链、R1 物理表和查询索引。
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Testcontainers
@@ -36,23 +36,24 @@ class FlywayMigrationIntegrationTests
     private JdbcTemplate jdbcTemplate;
 
     /**
-     * 验证空库会顺序执行 V1、V2，并且重复迁移不会再次应用已有版本。
+     * 验证空库会顺序执行 V1 至 V3，并且重复迁移不会再次应用已有版本。
      */
     @Test
     void migratesEmptyPostgreSqlDatabaseAndDoesNotReapplyBaseline()
     {
-        assertThat(successfulMigrations()).isEqualTo(2);
+        assertThat(successfulMigrations()).isEqualTo(3);
         assertThat(flyway.validateWithResult().validationSuccessful).isTrue();
         assertThat(existingUs010Tables()).isEqualTo(3);
+        assertThat(existingUs011Indexes()).isEqualTo(2);
 
         MigrateResult repeatedMigration = flyway.migrate();
 
         assertThat(repeatedMigration.migrationsExecuted).isZero();
-        assertThat(successfulMigrations()).isEqualTo(2);
+        assertThat(successfulMigrations()).isEqualTo(3);
     }
 
     /**
-     * 查询 V1、V2 已经成功执行的迁移数量。
+     * 查询 V1 至 V3 已经成功执行的迁移数量。
      *
      * @return 成功迁移记录数量
      */
@@ -61,7 +62,7 @@ class FlywayMigrationIntegrationTests
         return jdbcTemplate.queryForObject("""
                 SELECT COUNT(*)
                 FROM flyway_schema_history
-                WHERE version IN ('1', '2') AND success = TRUE
+                WHERE version IN ('1', '2', '3') AND success = TRUE
                 """, Integer.class);
     }
 
@@ -77,6 +78,24 @@ class FlywayMigrationIntegrationTests
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
                   AND table_name IN ('procurement_request', 'procurement_item', 'audit_event')
+                """, Integer.class);
+    }
+
+    /**
+     * 查询 US-011 为创建者分页和状态筛选增加的索引数量。
+     *
+     * @return 已存在的目标索引数量
+     */
+    private Integer existingUs011Indexes()
+    {
+        return jdbcTemplate.queryForObject("""
+                SELECT COUNT(*)
+                FROM pg_indexes
+                WHERE schemaname = 'public'
+                  AND indexname IN (
+                      'idx_procurement_request_creator_created_id',
+                      'idx_procurement_request_creator_status_created_id'
+                  )
                 """, Integer.class);
     }
 
