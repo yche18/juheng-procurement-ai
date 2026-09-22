@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询和并发安全修改。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改和幂等提交。
 
 ## 本地要求
 
@@ -114,6 +114,8 @@ curl -u demo-requester:juheng-local http://localhost:8080/api/current-user
 
 业务代码只使用服务端认证上下文中的 `userId` 和角色集合；请求体、查询参数或自定义请求头中的身份声明都不会覆盖它。HTTP Basic 凭据只做本地演示，任何非本机部署都必须更换密码并使用 HTTPS，后续可在不改变应用层 `CurrentUser` 契约的前提下替换为正式身份供应商。
 
+R1 的提交路由默认将任务分配给 `demo-approver`。可以使用逗号分隔的 `JUHENG_APPROVAL_ASSIGNEE_IDS` 覆盖候选人配置；提交时必须恰好解析出一个候选人，并且不能是申请创建者本人。空配置、多个不同候选人或自审都会失败关闭，不会把申请留在没有审批任务的 `SUBMITTED` 状态。
+
 ## 创建采购申请草稿
 
 具有 `REQUESTER` 角色的用户可以调用 `POST /api/procurement-requests` 创建草稿。创建者、币种 `CNY`、状态 `DRAFT`、版本、业务编号、预计总额和审计字段均由服务端控制。
@@ -196,6 +198,35 @@ curl -u demo-requester:juheng-local \
 
 修改时数据库使用申请 ID、可信创建者、`DRAFT` 状态和旧版本执行条件更新。旧版本请求返回 `409 CONCURRENT_MODIFICATION`，不会覆盖先完成的修改；非草稿申请返回 `409 BUSINESS_CONFLICT`。申请新版本、采购项、总额和 `PROCUREMENT_REQUEST_UPDATED` 审计事件在同一个事务中提交或回滚。
 
+## 提交采购申请
+
+申请创建者可以调用 `POST /api/procurement-requests/{requestId}/submit`，把完整 `DRAFT` 提交给人工审批。请求必须同时携带当前申请版本和最多 64 个字符的 `Idempotency-Key`：
+
+```shell
+curl -u demo-requester:juheng-local \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: submit-request-001" \
+  -d '{"version": 0}' \
+  http://localhost:8080/api/procurement-requests/替换为申请UUID/submit
+```
+
+成功响应示例：
+
+```json
+{
+  "requestId": "替换为申请UUID",
+  "requestStatus": "SUBMITTED",
+  "requestVersion": 1,
+  "approvalTaskId": "服务端生成的任务UUID",
+  "approvalTaskStatus": "PENDING"
+}
+```
+
+提交成功时，申请状态和版本、唯一审批任务、`PROCUREMENT_REQUEST_SUBMITTED` 与 `APPROVAL_TASK_ASSIGNED` 两条审计事件，以及可重放的幂等结果在同一个 PostgreSQL 事务中提交。任何一步失败都会整体回滚。
+
+相同调用者使用相同幂等键和相同版本重试时，会返回首次创建的任务，不会重复写入状态、任务或审计。同一作用域下复用该键但改变版本会返回 `409 IDEMPOTENCY_CONFLICT`。不同幂等键并发提交同一草稿时，数据库的 `DRAFT + version` 条件更新保证最多一个成功。该接口只创建人工审批任务，不执行批准或驳回，也不调用 LLM。
+
 ## API 错误响应
 
 API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
@@ -222,6 +253,9 @@ API 使用稳定错误代码区分请求格式、字段校验、认证、授权�
 | `401` | `AUTHENTICATION_REQUIRED` | 请求缺少有效认证身份 |
 | `403` | `ACCESS_DENIED` | 当前身份没有操作权限 |
 | `404` | `RESOURCE_NOT_FOUND` | 当前数据范围内不存在目标资源 |
+| `409` | `APPROVAL_ROUTING_FAILED` | 无法解析唯一且非申请人本人的审批人 |
+| `409` | `IDEMPOTENCY_CONFLICT` | 同一幂等键已经绑定到不同载荷 |
+| `409` | `IDEMPOTENCY_IN_PROGRESS` | 相同幂等请求尚未产生可重放结果 |
 | `409` | `BUSINESS_CONFLICT` | 请求与当前业务状态冲突 |
 | `409` | `CONCURRENT_MODIFICATION` | 客户端版本已过期或并发条件更新失败 |
 | `500` | `INTERNAL_ERROR` | 未预期系统错误 |
@@ -244,4 +278,4 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V3、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者范围、分页、详情查询、版本条件更新和并发冲突。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V4、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者范围、分页、详情查询、版本条件更新、审批路由、幂等重放和并发冲突。

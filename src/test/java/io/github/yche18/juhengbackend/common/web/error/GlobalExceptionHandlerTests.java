@@ -1,8 +1,11 @@
 package io.github.yche18.juhengbackend.common.web.error;
 
 import io.github.yche18.juhengbackend.common.error.AuthenticationRequiredException;
+import io.github.yche18.juhengbackend.common.error.ApprovalRoutingException;
 import io.github.yche18.juhengbackend.common.error.AuthorizationDeniedException;
 import io.github.yche18.juhengbackend.common.error.BusinessConflictException;
+import io.github.yche18.juhengbackend.common.error.IdempotencyConflictException;
+import io.github.yche18.juhengbackend.common.error.IdempotencyInProgressException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -136,6 +139,23 @@ class GlobalExceptionHandlerTests
     }
 
     /**
+     * 验证审批路由和两种幂等异常使用各自稳定的 409 错误代码。
+     */
+    @Test
+    void distinguishesRoutingAndIdempotencyConflicts() throws Exception
+    {
+        mockMvc.perform(get("/test/errors/routing"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("APPROVAL_ROUTING_FAILED"));
+        mockMvc.perform(get("/test/errors/idempotency-conflict"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_CONFLICT"));
+        mockMvc.perform(get("/test/errors/idempotency-in-progress"))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("IDEMPOTENCY_IN_PROGRESS"));
+    }
+
+    /**
      * 验证未预期异常使用通用响应，且不泄露凭据、异常类型或堆栈。
      */
     @Test
@@ -208,6 +228,33 @@ class ErrorHandlingTestController
     void businessConflict()
     {
         throw new BusinessConflictException("Stale database version supplied");
+    }
+
+    /**
+     * 抛出审批路由异常，验证专用 409 映射。
+     */
+    @GetMapping("/routing")
+    void approvalRoutingFailed()
+    {
+        throw new ApprovalRoutingException("No configured approver");
+    }
+
+    /**
+     * 抛出幂等载荷冲突，验证专用 409 映射。
+     */
+    @GetMapping("/idempotency-conflict")
+    void idempotencyConflict()
+    {
+        throw new IdempotencyConflictException("Payload fingerprint differs");
+    }
+
+    /**
+     * 抛出幂等处理中异常，验证专用 409 映射。
+     */
+    @GetMapping("/idempotency-in-progress")
+    void idempotencyInProgress()
+    {
+        throw new IdempotencyInProgressException("Execution still owns the key");
     }
 
     /**

@@ -1,9 +1,13 @@
 package io.github.yche18.juhengbackend.common.web.error;
 
 import io.github.yche18.juhengbackend.common.error.AuthenticationRequiredException;
+import io.github.yche18.juhengbackend.common.error.ApprovalRoutingException;
 import io.github.yche18.juhengbackend.common.error.AuthorizationDeniedException;
 import io.github.yche18.juhengbackend.common.error.BusinessConflictException;
+import io.github.yche18.juhengbackend.common.error.BusinessValidationException;
 import io.github.yche18.juhengbackend.common.error.ConcurrentUpdateException;
+import io.github.yche18.juhengbackend.common.error.IdempotencyConflictException;
+import io.github.yche18.juhengbackend.common.error.IdempotencyInProgressException;
 import io.github.yche18.juhengbackend.common.error.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
@@ -184,6 +188,66 @@ public class GlobalExceptionHandler
             HttpServletRequest request)
     {
         return error(HttpStatus.NOT_FOUND, ApiErrorCode.RESOURCE_NOT_FOUND, request);
+    }
+
+    /**
+     * 将业务对象完整性不足映射为安全的请求校验失败。
+     *
+     * @param exception 业务完整性异常；内部消息不会写入响应
+     * @param request 当前 HTTP 请求
+     * @return HTTP 400 业务校验错误响应
+     */
+    @ExceptionHandler(BusinessValidationException.class)
+    ResponseEntity<ApiErrorResponse> handleBusinessValidation(
+            BusinessValidationException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.BAD_REQUEST, ApiErrorCode.VALIDATION_FAILED, request);
+    }
+
+    /**
+     * 将审批路由失败映射为可区分的冲突响应。
+     *
+     * @param exception 审批路由异常；内部消息不会写入响应
+     * @param request 当前 HTTP 请求
+     * @return HTTP 409 审批路由错误响应
+     */
+    @ExceptionHandler(ApprovalRoutingException.class)
+    ResponseEntity<ApiErrorResponse> handleApprovalRouting(
+            ApprovalRoutingException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.CONFLICT, ApiErrorCode.APPROVAL_ROUTING_FAILED, request);
+    }
+
+    /**
+     * 将幂等键载荷冲突映射为可区分的冲突响应。
+     *
+     * @param exception 幂等冲突异常；内部消息不会写入响应
+     * @param request 当前 HTTP 请求
+     * @return HTTP 409 幂等冲突响应
+     */
+    @ExceptionHandler(IdempotencyConflictException.class)
+    ResponseEntity<ApiErrorResponse> handleIdempotencyConflict(
+            IdempotencyConflictException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.CONFLICT, ApiErrorCode.IDEMPOTENCY_CONFLICT, request);
+    }
+
+    /**
+     * 将尚未完成的相同幂等请求映射为明确处理中响应。
+     *
+     * @param exception 幂等处理中异常；内部消息不会写入响应
+     * @param request 当前 HTTP 请求
+     * @return HTTP 409 幂等处理中响应
+     */
+    @ExceptionHandler(IdempotencyInProgressException.class)
+    ResponseEntity<ApiErrorResponse> handleIdempotencyInProgress(
+            IdempotencyInProgressException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.CONFLICT, ApiErrorCode.IDEMPOTENCY_IN_PROGRESS, request);
     }
 
     /**

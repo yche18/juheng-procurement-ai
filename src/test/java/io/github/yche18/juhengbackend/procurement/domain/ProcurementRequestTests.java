@@ -176,6 +176,46 @@ class ProcurementRequestTests
     }
 
     /**
+     * 验证提交草稿会生成 SUBMITTED 新快照，同时保留核心字段并递增版本。
+     */
+    @Test
+    void submitsDraftAsNewVersion()
+    {
+        ProcurementRequest draft = restoredRequest(ProcurementRequestStatus.DRAFT, 3);
+        Instant submittedAt = Instant.parse("2026-09-22T03:04:05Z");
+
+        ProcurementRequest submitted = draft.submit(3, submittedAt);
+
+        assertThat(submitted.id()).isEqualTo(draft.id());
+        assertThat(submitted.title()).isEqualTo(draft.title());
+        assertThat(submitted.items()).isEqualTo(draft.items());
+        assertThat(submitted.estimatedTotal()).isEqualTo(draft.estimatedTotal());
+        assertThat(submitted.status()).isEqualTo(ProcurementRequestStatus.SUBMITTED);
+        assertThat(submitted.version()).isEqualTo(4);
+        assertThat(submitted.updatedAt()).isEqualTo(submittedAt);
+        assertThat(draft.status()).isEqualTo(ProcurementRequestStatus.DRAFT);
+        assertThat(draft.version()).isEqualTo(3);
+    }
+
+    /**
+     * 验证非草稿状态和过期版本都不能执行领域提交转换。
+     */
+    @Test
+    void rejectsInvalidSubmissionStateAndVersion()
+    {
+        Instant submittedAt = Instant.parse("2026-09-22T03:04:05Z");
+        ProcurementRequest submitted = restoredRequest(ProcurementRequestStatus.SUBMITTED, 2);
+        ProcurementRequest draft = restoredRequest(ProcurementRequestStatus.DRAFT, 2);
+
+        assertThatThrownBy(() -> submitted.submit(2, submittedAt))
+                .isInstanceOf(BusinessConflictException.class)
+                .hasMessageContaining("draft");
+        assertThatThrownBy(() -> draft.submit(1, submittedAt))
+                .isInstanceOf(ConcurrentUpdateException.class)
+                .hasMessageContaining("current version is 2");
+    }
+
+    /**
      * 创建测试用采购草稿。
      *
      * @param items 采购项集合

@@ -33,7 +33,10 @@ public record AuditEvent(
 
     private static final String CREATED_ACTION = "PROCUREMENT_REQUEST_CREATED";
     private static final String UPDATED_ACTION = "PROCUREMENT_REQUEST_UPDATED";
+    private static final String SUBMITTED_ACTION = "PROCUREMENT_REQUEST_SUBMITTED";
+    private static final String TASK_ASSIGNED_ACTION = "APPROVAL_TASK_ASSIGNED";
     private static final String REQUEST_TARGET = "PROCUREMENT_REQUEST";
+    private static final String TASK_TARGET = "APPROVAL_TASK";
     private static final String SUCCESS_RESULT = "SUCCESS";
 
     /**
@@ -101,6 +104,62 @@ public record AuditEvent(
                 UPDATED_ACTION,
                 REQUEST_TARGET,
                 requestId,
+                occurredAt,
+                SUCCESS_RESULT,
+                requestIdentifier);
+    }
+
+    /**
+     * 创建采购申请提交成功时的审计事件。
+     *
+     * @param requestId 采购申请标识
+     * @param actorId 可信申请人
+     * @param occurredAt 服务端提交时间
+     * @param requestIdentifier 幂等键
+     * @return 提交成功审计事件
+     */
+    public static AuditEvent procurementRequestSubmitted(
+            UUID requestId,
+            UserId actorId,
+            Instant occurredAt,
+            String requestIdentifier)
+    {
+        return new AuditEvent(
+                UUID.randomUUID(),
+                requestId,
+                actorId,
+                SUBMITTED_ACTION,
+                REQUEST_TARGET,
+                requestId,
+                occurredAt,
+                SUCCESS_RESULT,
+                requestIdentifier);
+    }
+
+    /**
+     * 创建审批任务分配成功时的审计事件。
+     *
+     * @param requestId 所属采购申请标识
+     * @param taskId 审批任务标识
+     * @param actorId 触发任务创建的可信申请人
+     * @param occurredAt 服务端分配时间
+     * @param requestIdentifier 幂等键
+     * @return 任务分配成功审计事件
+     */
+    public static AuditEvent approvalTaskAssigned(
+            UUID requestId,
+            UUID taskId,
+            UserId actorId,
+            Instant occurredAt,
+            String requestIdentifier)
+    {
+        return new AuditEvent(
+                UUID.randomUUID(),
+                requestId,
+                actorId,
+                TASK_ASSIGNED_ACTION,
+                TASK_TARGET,
+                taskId,
                 occurredAt,
                 SUCCESS_RESULT,
                 requestIdentifier);

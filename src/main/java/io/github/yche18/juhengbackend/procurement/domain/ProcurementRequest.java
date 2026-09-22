@@ -185,6 +185,55 @@ public final class ProcurementRequest
     }
 
     /**
+     * 校验申请仍是客户端读取的完整草稿，并生成已提交的新版本快照。
+     *
+     * <p>该行为只改变采购申请自身状态；审批路由和任务创建由 Application
+     * 在同一事务中协调。</p>
+     *
+     * @param expectedVersion 客户端读取到的草稿版本
+     * @param submittedAt 服务端提交时间
+     * @return 状态为 SUBMITTED 且版本递增的新聚合快照
+     */
+    public ProcurementRequest submit(long expectedVersion, Instant submittedAt)
+    {
+        if (status != ProcurementRequestStatus.DRAFT)
+        {
+            throw new BusinessConflictException(
+                    "Only a draft procurement request can be submitted");
+        }
+        if (expectedVersion != version)
+        {
+            throw new ConcurrentUpdateException(
+                    "Expected procurement request version " + expectedVersion
+                            + " but current version is " + version);
+        }
+        long nextVersion;
+        try
+        {
+            nextVersion = Math.addExact(version, 1L);
+        }
+        catch (ArithmeticException exception)
+        {
+            throw new ConcurrentUpdateException(
+                    "Procurement request version cannot be incremented");
+        }
+        return new ProcurementRequest(
+                id,
+                businessNumber,
+                creatorId,
+                title,
+                purpose,
+                department,
+                expectedDeliveryDate,
+                currency,
+                ProcurementRequestStatus.SUBMITTED,
+                nextVersion,
+                createdAt,
+                Objects.requireNonNull(submittedAt, "Submitted time must not be null"),
+                items);
+    }
+
+    /**
      * 构造采购申请并集中验证聚合级不变量。
      */
     private ProcurementRequest(
