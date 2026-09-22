@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway 基线和统一 API 错误契约，尚不包含业务表与采购业务。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway 基线、统一 API 错误契约和本地演示身份，尚不包含业务表与采购业务。
 
 ## 本地要求
 
@@ -71,6 +71,49 @@ curl http://localhost:8080/actuator/health
 
 `groups` 表示 Spring Boot 内置的存活与就绪检查分组。健康端点只返回分组名称和汇总状态，不公开组件详情、配置或凭据。
 
+## 本地演示身份
+
+US-003 使用无状态 HTTP Basic 提供最小可信认证上下文。该方案只服务于本地开发和自动化测试，不包含注册、密码管理、用户数据库或 OAuth2 身份供应商。除 `/actuator/health` 外的端点都需要认证。
+
+| 用户名 | 角色 |
+| --- | --- |
+| `demo-requester` | `REQUESTER` |
+| `demo-approver` | `APPROVER` |
+| `demo-admin` | `ADMIN` |
+| `demo-requester-approver` | `REQUESTER`、`APPROVER` |
+
+四个身份的本地默认密码都是 `juheng-local`。可以在启动前通过 `JUHENG_DEMO_PASSWORD` 覆盖：
+
+```powershell
+$env:JUHENG_DEMO_PASSWORD = "replace-with-local-password"
+.\mvnw.cmd spring-boot:run
+```
+
+查看认证上下文中的当前用户和完整角色集合：
+
+```powershell
+$credential = [Convert]::ToBase64String(
+    [Text.Encoding]::ASCII.GetBytes("demo-requester:juheng-local")
+)
+Invoke-RestMethod `
+    -Uri http://localhost:8080/api/current-user `
+    -Headers @{ Authorization = "Basic $credential" }
+```
+
+也可以使用：
+
+```shell
+curl -u demo-requester:juheng-local http://localhost:8080/api/current-user
+```
+
+正常响应示例：
+
+```json
+{"userId":"demo-requester","roles":["REQUESTER"]}
+```
+
+业务代码只使用服务端认证上下文中的 `userId` 和角色集合；请求体、查询参数或自定义请求头中的身份声明都不会覆盖它。HTTP Basic 凭据只做本地演示，任何非本机部署都必须更换密码并使用 HTTPS，后续可在不改变应用层 `CurrentUser` 契约的前提下替换为正式身份供应商。
+
 ## API 错误响应
 
 API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
@@ -99,7 +142,7 @@ API 使用稳定错误代码区分请求格式、字段校验、认证、授权�
 | `409` | `BUSINESS_CONFLICT` | 请求与当前业务状态冲突 |
 | `500` | `INTERNAL_ERROR` | 未预期系统错误 |
 
-错误响应不包含被拒绝的字段值、内部异常消息、堆栈或凭据。`fieldErrors` 只在校验失败时包含内容，其他错误返回空数组。US-002 只建立错误契约；真实认证和角色解析由 US-003 实现。
+错误响应不包含被拒绝的字段值、内部异常消息、堆栈或凭据。`fieldErrors` 只在校验失败时包含内容，其他错误返回空数组。Spring Security 过滤器产生的 401/403 与 Controller 内的统一错误契约保持一致。
 
 ## 运行测试
 
