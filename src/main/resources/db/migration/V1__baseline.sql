@@ -1,0 +1,2 @@
+-- Establish the Flyway-managed schema history for the Juheng backend.
+-- Domain tables are intentionally introduced by the User Stories that own them.
