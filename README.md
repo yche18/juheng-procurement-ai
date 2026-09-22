@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改和幂等提交。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改、幂等提交和审批人待办查询。
 
 ## 本地要求
 
@@ -227,6 +227,26 @@ curl -u demo-requester:juheng-local \
 
 相同调用者使用相同幂等键和相同版本重试时，会返回首次创建的任务，不会重复写入状态、任务或审计。同一作用域下复用该键但改变版本会返回 `409 IDEMPOTENCY_CONFLICT`。不同幂等键并发提交同一草稿时，数据库的 `DRAFT + version` 条件更新保证最多一个成功。该接口只创建人工审批任务，不执行批准或驳回，也不调用 LLM。
 
+## 查看待审批任务
+
+具有 `APPROVER` 角色的用户可以分页查看分配给自己的审批任务。页码从 `0` 开始，默认每页 `20` 条，最大 `100` 条；结果固定按任务的 `createdAt DESC, id DESC` 排序。`status` 可以省略，也可以使用 `PENDING`、`APPROVED` 或 `REJECTED`：
+
+```shell
+curl -u demo-approver:juheng-local \
+  "http://localhost:8080/api/approval-tasks?page=0&size=20&status=PENDING"
+```
+
+分页响应包含 `content`、`page`、`size`、`totalElements` 和 `totalPages`。每条任务包含任务状态、任务版本和采购申请摘要；列表先分页查询当前审批人的任务，再批量加载本页申请，不会逐条查询申请。
+
+取得列表中的任务 ID 后，可以查看任务及完整采购申请详情：
+
+```shell
+curl -u demo-approver:juheng-local \
+  http://localhost:8080/api/approval-tasks/替换为任务UUID
+```
+
+详情包含任务状态、受理人、任务版本、申请核心字段、申请版本以及按行号排序的采购项。数据库任务查询直接使用认证上下文中的用户 ID 限定 `assignee_id`；客户端不能指定查询审批人。他人任务与不存在的任务统一返回 `404 RESOURCE_NOT_FOUND`，并且不会返回关联申请内容。当前接口只读，不执行批准、驳回、转派或批量审批。
+
 ## API 错误响应
 
 API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
@@ -278,4 +298,4 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V4、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者范围、分页、详情查询、版本条件更新、审批路由、幂等重放和并发冲突。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V5、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请和审批任务集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者/受理人范围、分页、详情查询、版本条件更新、审批路由、幂等重放和并发冲突。
