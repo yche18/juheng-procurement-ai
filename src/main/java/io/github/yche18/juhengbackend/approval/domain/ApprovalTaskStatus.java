@@ -7,5 +7,7 @@ public enum ApprovalTaskStatus
 {
     PENDING,
     APPROVED,
-    REJECTED
+    REJECTED;
+
+    public static final String SUPPORTED_PATTERN = "PENDING|APPROVED|REJECTED";
 }

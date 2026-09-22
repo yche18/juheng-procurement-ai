@@ -1,8 +1,8 @@
 # 据衡 R1 数据库关系模型
 
 - 文档状态：Baselined
-- 版本：1.1
-- 当前物理范围：截至 US-013 提交采购申请
+- 版本：1.2
+- 当前物理范围：截至 US-014 查看待审批任务
 - 数据库：PostgreSQL 17
 
 ## 1. 文档目的
@@ -12,7 +12,7 @@
 1. R1 关系演进总览，用来避免当前表结构阻塞后续提交和审批 Story。
 2. 截至当前 Story 的物理 ERD，只对已经进入实现的表定义完整字段、类型和约束。
 
-后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 只增加提交用例必需的审批任务和幂等记录，不提前创建 US-015 的审批决定。
+后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 已增加提交用例必需的审批任务和幂等记录，US-014 只增加任务查询索引，不提前创建 US-015 的审批决定。
 
 ## 2. R1 关系演进总览
 
@@ -31,13 +31,13 @@ erDiagram
 | `procurement_request` | US-010 | 已落库 |
 | `procurement_item` | US-010 | 已落库 |
 | `audit_event` | US-010 | 已落库；US-013 复用 |
-| `approval_task` | US-013 | US-013 计划落库 |
+| `approval_task` | US-013 | 已落库；US-014 增加查询索引 |
 | `approval_decision` | US-015 | 仅关系占位 |
-| `idempotency_record` | US-013 | US-013 计划落库 |
+| `idempotency_record` | US-013 | 已落库 |
 
 R1 不建立 `user` 表。`creator_id`、`actor_id` 和 `assignee_id` 保存可信认证上下文中的稳定用户 ID，不对客户端提供的身份声明建立信任。
 
-## 3. 截至 US-013 的物理 ERD
+## 3. 截至 US-014 的物理 ERD
 
 ```mermaid
 erDiagram
@@ -113,6 +113,20 @@ erDiagram
     PROCUREMENT_REQUEST ||--o{ IDEMPOTENCY_RECORD : submit_target
 ```
 
+### 3.1 已实现的查询索引
+
+下表列出截至 US-014 由 Flyway 显式创建、用于业务查询的非约束索引。主键和 `UNIQUE` 约束对应的 PostgreSQL 自动索引仍由各表约束定义，本表不重复列出。
+
+| 索引 | 表与列顺序 | 用途 | 引入 Story / 迁移 |
+| --- | --- | --- | --- |
+| `idx_audit_event_request_time` | `audit_event (procurement_request_id, occurred_at, id)` | 按申请稳定读取审计时间线，为 US-016 保留已落库的查询路径 | US-010 / V2 |
+| `idx_procurement_request_creator_created_id` | `procurement_request (creator_id, created_at DESC, id DESC)` | 当前申请人范围内的稳定分页 | US-011 / V3 |
+| `idx_procurement_request_creator_status_created_id` | `procurement_request (creator_id, status, created_at DESC, id DESC)` | 当前申请人按状态筛选并稳定分页 | US-011 / V3 |
+| `idx_approval_task_assignee_created_id` | `approval_task (assignee_id, created_at DESC, id DESC)` | 当前审批人范围内的任务稳定分页 | US-014 / V5 |
+| `idx_approval_task_assignee_status_created_id` | `approval_task (assignee_id, status, created_at DESC, id DESC)` | 当前审批人按任务状态筛选并稳定分页 | US-014 / V5 |
+
+审批任务详情使用主键 `id` 与可信 `assignee_id` 组成联合查询条件。当前没有为该详情查询额外创建 `(id, assignee_id)` 索引，因为主键先定位单行后再校验受理人已经满足 R1 查询规模；后续只有在实际执行计划证明有需要时才增加冗余索引。
+
 ## 4. 表职责与关键约束
 
 ### 4.1 procurement_request
@@ -151,6 +165,7 @@ erDiagram
 - 创建时 `status` 必须为 `PENDING`，后续 US-015 可转换为 `APPROVED` 或 `REJECTED`；数据库检查约束允许这三个 R1 状态。
 - `version` 初始为 `0`，为 US-015 的审批决定提供乐观并发控制。`created_at`、`updated_at` 使用服务端时间。
 - 任务唯一性由提交用例与 `UNIQUE (procurement_request_id)` 共同保护；并发使用不同幂等键提交同一申请时，该约束仍是最后一道防线。
+- US-014 使用 `assignee_id + created_at DESC + id DESC` 支持本人任务稳定分页，并使用 `assignee_id + status + created_at DESC + id DESC` 支持状态筛选；任务详情查询同时携带任务 ID 和可信 `assignee_id`。
 
 ### 4.5 idempotency_record
 
@@ -188,6 +203,7 @@ erDiagram
 
 - `V1` 建立空基线；`V2` 创建采购申请、采购项、审计事件和业务编号序列；`V3` 增加采购申请查询索引。
 - US-013 使用独立的 `V4` 创建 `approval_task` 和 `idempotency_record`，不改写已经执行过的迁移。
+- US-014 使用独立的 `V5` 增加审批任务受理人分页和状态筛选索引，不新增业务表或修改任务生命周期字段。
 - `procurement_request.status` 在 `V2` 已允许 `SUBMITTED`，`audit_event` 也可承载新的 action，因此 V4 不需要为提交动作修改这两张表。
 - V4 不创建 `approval_decision`，也不预建材料、证据、风险或 AI 相关结构。
 
