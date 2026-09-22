@@ -3,6 +3,7 @@ package io.github.yche18.juhengbackend.common.web.error;
 import io.github.yche18.juhengbackend.common.error.AuthenticationRequiredException;
 import io.github.yche18.juhengbackend.common.error.AuthorizationDeniedException;
 import io.github.yche18.juhengbackend.common.error.BusinessConflictException;
+import io.github.yche18.juhengbackend.common.error.ConcurrentUpdateException;
 import io.github.yche18.juhengbackend.common.error.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
@@ -198,6 +199,21 @@ public class GlobalExceptionHandler
             HttpServletRequest request)
     {
         return error(HttpStatus.CONFLICT, ApiErrorCode.BUSINESS_CONFLICT, request);
+    }
+
+    /**
+     * 将乐观版本或数据库条件更新失败映射为可区分的并发冲突响应。
+     *
+     * @param exception 并发更新异常；内部消息不会写入响应
+     * @param request 当前 HTTP 请求
+     * @return HTTP 409 并发修改错误响应
+     */
+    @ExceptionHandler(ConcurrentUpdateException.class)
+    ResponseEntity<ApiErrorResponse> handleConcurrentUpdate(
+            ConcurrentUpdateException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.CONFLICT, ApiErrorCode.CONCURRENT_MODIFICATION, request);
     }
 
     /**

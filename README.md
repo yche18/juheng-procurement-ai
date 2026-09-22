@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建和本人范围查询。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询和并发安全修改。
 
 ## 本地要求
 
@@ -142,7 +142,7 @@ curl -u demo-requester:juheng-local \
 
 成功时返回 HTTP `201`。业务编号格式为 `PR-yyyyMMdd-序列值`；序列保证唯一但不承诺连续。当前受控品类为 `LAPTOP`、`MONITOR`、`OFFICE_CHAIR` 和 `SOFTWARE_LICENSE`。数量最多四位小数，单价和金额使用两位小数；每行按 `quantity × estimatedUnitPrice` 计算并以 `HALF_UP` 舍入，总额为各行舍入后金额之和。
 
-申请、采购项和 `PROCUREMENT_REQUEST_CREATED` 审计事件在同一个 PostgreSQL 事务中保存：任一写入失败时全部回滚。当前创建接口不包含修改、提交或审批能力。
+申请、采购项和 `PROCUREMENT_REQUEST_CREATED` 审计事件在同一个 PostgreSQL 事务中保存：任一写入失败时全部回滚。创建接口本身不包含提交或审批能力。
 
 ## 查看自己的采购申请
 
@@ -163,6 +163,38 @@ curl -u demo-requester:juheng-local \
 ```
 
 详情包含采购项、服务端计算金额、当前状态和版本。数据库查询会直接使用认证上下文中的用户 ID 限定 `creator_id`；客户端不能通过请求参数指定查询所有者。他人申请与不存在的申请统一返回 `404 RESOURCE_NOT_FOUND`，避免泄露资源是否存在。
+
+## 修改采购申请草稿
+
+申请创建者可以使用 `PUT /api/procurement-requests/{requestId}` 整体替换仍处于 `DRAFT` 的可编辑字段和采购项。先通过详情接口取得当前 `version`，再把该版本随更新请求提交：
+
+```shell
+curl -u demo-requester:juheng-local \
+  -X PUT \
+  -H "Content-Type: application/json" \
+  -d '{
+    "version": 0,
+    "title": "更新后的研发电脑采购",
+    "purpose": "补充开发和测试设备",
+    "department": "研发部",
+    "expectedDeliveryDate": "2026-11-01",
+    "items": [
+      {
+        "name": "开发笔记本",
+        "categoryCode": "LAPTOP",
+        "specification": "32GB 内存",
+        "quantity": 2,
+        "unit": "台",
+        "estimatedUnitPrice": 8999.00
+      }
+    ]
+  }' \
+  http://localhost:8080/api/procurement-requests/替换为申请UUID
+```
+
+成功响应包含重新计算的行金额、总额和递增后的版本。该接口采用完整快照语义：请求中的 `items` 会替换原采购项，采购项 ID 和行号由服务端重新生成；业务编号、创建者、币种和状态不能由请求体改变。
+
+修改时数据库使用申请 ID、可信创建者、`DRAFT` 状态和旧版本执行条件更新。旧版本请求返回 `409 CONCURRENT_MODIFICATION`，不会覆盖先完成的修改；非草稿申请返回 `409 BUSINESS_CONFLICT`。申请新版本、采购项、总额和 `PROCUREMENT_REQUEST_UPDATED` 审计事件在同一个事务中提交或回滚。
 
 ## API 错误响应
 
@@ -191,6 +223,7 @@ API 使用稳定错误代码区分请求格式、字段校验、认证、授权�
 | `403` | `ACCESS_DENIED` | 当前身份没有操作权限 |
 | `404` | `RESOURCE_NOT_FOUND` | 当前数据范围内不存在目标资源 |
 | `409` | `BUSINESS_CONFLICT` | 请求与当前业务状态冲突 |
+| `409` | `CONCURRENT_MODIFICATION` | 客户端版本已过期或并发条件更新失败 |
 | `500` | `INTERNAL_ERROR` | 未预期系统错误 |
 
 错误响应不包含被拒绝的字段值、内部异常消息、堆栈或凭据。`fieldErrors` 只在校验失败时包含内容，其他错误返回空数组。Spring Security 过滤器产生的 401/403 与 Controller 内的统一错误契约保持一致。
@@ -211,4 +244,4 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V3、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者范围、分页和详情查询。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V3、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者范围、分页、详情查询、版本条件更新和并发冲突。

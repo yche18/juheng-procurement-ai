@@ -1,5 +1,8 @@
 package io.github.yche18.juhengbackend.procurement.application;
 
+import io.github.yche18.juhengbackend.procurement.domain.ProcurementItem;
+import io.github.yche18.juhengbackend.procurement.domain.ProcurementRequest;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -50,6 +53,34 @@ public record ProcurementRequestDetails(
     }
 
     /**
+     * 从写用例产生的领域快照构造详情结果，避免保存后再次查询数据库。
+     *
+     * @param request 已成功持久化的采购申请聚合
+     * @return 可供协议层返回的详情
+     */
+    public static ProcurementRequestDetails from(ProcurementRequest request)
+    {
+        List<ItemDetails> itemDetails = request.items().stream()
+                .map(ItemDetails::from)
+                .toList();
+        return new ProcurementRequestDetails(
+                request.id(),
+                request.businessNumber().value(),
+                request.creatorId().value(),
+                request.title(),
+                request.purpose(),
+                request.department(),
+                request.expectedDeliveryDate(),
+                request.currency().name(),
+                request.estimatedTotal().amount(),
+                request.status().name(),
+                request.version(),
+                request.createdAt(),
+                request.updatedAt(),
+                itemDetails);
+    }
+
+    /**
      * 采购申请详情中的只读采购项。
      *
      * @param id 采购项标识
@@ -73,5 +104,25 @@ public record ProcurementRequestDetails(
             BigDecimal estimatedUnitPrice,
             BigDecimal estimatedLineTotal)
     {
+
+        /**
+         * 从领域采购项生成详情中的只读采购项。
+         *
+         * @param item 领域采购项
+         * @return 详情采购项
+         */
+        private static ItemDetails from(ProcurementItem item)
+        {
+            return new ItemDetails(
+                    item.id(),
+                    item.lineNumber(),
+                    item.name(),
+                    item.categoryCode().name(),
+                    item.specification(),
+                    item.quantity(),
+                    item.unit(),
+                    item.estimatedUnitPrice().amount(),
+                    item.estimatedLineTotal().amount());
+        }
     }
 }

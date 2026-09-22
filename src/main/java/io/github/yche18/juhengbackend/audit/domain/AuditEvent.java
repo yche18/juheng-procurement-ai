@@ -32,6 +32,7 @@ public record AuditEvent(
 {
 
     private static final String CREATED_ACTION = "PROCUREMENT_REQUEST_CREATED";
+    private static final String UPDATED_ACTION = "PROCUREMENT_REQUEST_UPDATED";
     private static final String REQUEST_TARGET = "PROCUREMENT_REQUEST";
     private static final String SUCCESS_RESULT = "SUCCESS";
 
@@ -71,6 +72,33 @@ public record AuditEvent(
                 requestId,
                 actorId,
                 CREATED_ACTION,
+                REQUEST_TARGET,
+                requestId,
+                occurredAt,
+                SUCCESS_RESULT,
+                requestIdentifier);
+    }
+
+    /**
+     * 创建采购申请草稿修改成功时的审计事件。
+     *
+     * @param requestId 采购申请标识
+     * @param actorId 可信修改者
+     * @param occurredAt 服务端修改时间
+     * @param requestIdentifier 服务端请求标识
+     * @return 修改成功审计事件
+     */
+    public static AuditEvent procurementRequestUpdated(
+            UUID requestId,
+            UserId actorId,
+            Instant occurredAt,
+            String requestIdentifier)
+    {
+        return new AuditEvent(
+                UUID.randomUUID(),
+                requestId,
+                actorId,
+                UPDATED_ACTION,
                 REQUEST_TARGET,
                 requestId,
                 occurredAt,

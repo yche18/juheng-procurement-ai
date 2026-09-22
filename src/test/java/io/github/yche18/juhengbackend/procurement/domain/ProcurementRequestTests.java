@@ -1,5 +1,7 @@
 package io.github.yche18.juhengbackend.procurement.domain;
 
+import io.github.yche18.juhengbackend.common.error.BusinessConflictException;
+import io.github.yche18.juhengbackend.common.error.ConcurrentUpdateException;
 import io.github.yche18.juhengbackend.identity.domain.UserId;
 import org.junit.jupiter.api.Test;
 
@@ -102,6 +104,78 @@ class ProcurementRequestTests
     }
 
     /**
+     * 验证修改草稿会生成新聚合快照、递增版本并重新计算总额。
+     */
+    @Test
+    void updatesDraftAsNewVersionAndRecalculatesTotal()
+    {
+        ProcurementRequest current = request(List.of(item(1, "1", "10.00")));
+        Instant updatedAt = Instant.parse("2026-09-22T02:03:04Z");
+
+        ProcurementRequest updated = current.updateDraft(
+                0,
+                "更新后的标题",
+                "更新后的目的",
+                "采购部",
+                LocalDate.of(2026, 11, 1),
+                List.of(item(1, "2", "20.00")),
+                updatedAt);
+
+        assertThat(updated.id()).isEqualTo(current.id());
+        assertThat(updated.businessNumber()).isEqualTo(current.businessNumber());
+        assertThat(updated.creatorId()).isEqualTo(current.creatorId());
+        assertThat(updated.currency()).isEqualTo(Currency.CNY);
+        assertThat(updated.status()).isEqualTo(ProcurementRequestStatus.DRAFT);
+        assertThat(updated.title()).isEqualTo("更新后的标题");
+        assertThat(updated.estimatedTotal().amount()).isEqualByComparingTo("40.00");
+        assertThat(updated.version()).isEqualTo(1);
+        assertThat(updated.createdAt()).isEqualTo(current.createdAt());
+        assertThat(updated.updatedAt()).isEqualTo(updatedAt);
+        assertThat(current.title()).isEqualTo("研发电脑采购");
+        assertThat(current.version()).isZero();
+    }
+
+    /**
+     * 验证非草稿状态不能通过普通修改行为改变核心字段。
+     */
+    @Test
+    void rejectsUpdatesOutsideDraftState()
+    {
+        ProcurementRequest submitted = restoredRequest(ProcurementRequestStatus.SUBMITTED, 2);
+
+        assertThatThrownBy(() -> submitted.updateDraft(
+                2,
+                "非法修改",
+                "非法修改",
+                "研发部",
+                LocalDate.of(2026, 11, 1),
+                List.of(item(1, "1", "10.00")),
+                Instant.parse("2026-09-22T02:03:04Z")))
+                .isInstanceOf(BusinessConflictException.class)
+                .hasMessageContaining("draft");
+    }
+
+    /**
+     * 验证旧版本在进入持久化前就能得到明确并发冲突。
+     */
+    @Test
+    void rejectsStaleDraftVersion()
+    {
+        ProcurementRequest current = restoredRequest(ProcurementRequestStatus.DRAFT, 3);
+
+        assertThatThrownBy(() -> current.updateDraft(
+                2,
+                "过期版本修改",
+                "过期版本修改",
+                "研发部",
+                LocalDate.of(2026, 11, 1),
+                List.of(item(1, "1", "10.00")),
+                Instant.parse("2026-09-22T02:03:04Z")))
+                .isInstanceOf(ConcurrentUpdateException.class)
+                .hasMessageContaining("current version is 3");
+    }
+
+    /**
      * 创建测试用采购草稿。
      *
      * @param items 采购项集合
@@ -119,6 +193,32 @@ class ProcurementRequestTests
                 LocalDate.of(2026, 10, 1),
                 items,
                 Instant.parse("2026-09-22T01:02:03Z"));
+    }
+
+    /**
+     * 恢复指定状态和版本的测试申请，用于验证修改状态机与并发保护。
+     *
+     * @param status 申请状态
+     * @param version 持久化版本
+     * @return 已恢复的采购申请
+     */
+    private ProcurementRequest restoredRequest(ProcurementRequestStatus status, long version)
+    {
+        Instant createdAt = Instant.parse("2026-09-22T01:02:03Z");
+        return ProcurementRequest.restore(
+                UUID.randomUUID(),
+                new BusinessNumber("PR-20260922-1"),
+                new UserId("demo-requester"),
+                "研发电脑采购",
+                "补充开发设备",
+                "研发部",
+                LocalDate.of(2026, 10, 1),
+                Currency.CNY,
+                status,
+                version,
+                createdAt,
+                createdAt,
+                List.of(item(1, "1", "10.00")));
     }
 
     /**

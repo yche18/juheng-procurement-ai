@@ -13,6 +13,7 @@ public enum ApiErrorCode
     ACCESS_DENIED("Access is denied"),
     RESOURCE_NOT_FOUND("Resource was not found"),
     BUSINESS_CONFLICT("Request conflicts with the current business state"),
+    CONCURRENT_MODIFICATION("Resource was modified by another request"),
     INTERNAL_ERROR("An unexpected error occurred");
 
     private final String defaultMessage;
