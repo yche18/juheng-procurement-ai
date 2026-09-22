@@ -8,6 +8,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
@@ -31,6 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 验证统一异常处理器的 HTTP 状态、响应结构和敏感信息保护行为。
  */
 @WebMvcTest(controllers = ErrorHandlingTestController.class)
+@AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("no-database")
 class GlobalExceptionHandlerTests
 {
