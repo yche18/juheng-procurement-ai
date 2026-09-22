@@ -7,6 +7,7 @@ import io.github.yche18.juhengbackend.procurement.application.CreateProcurementR
 import io.github.yche18.juhengbackend.procurement.application.ListOwnProcurementRequestsQuery;
 import io.github.yche18.juhengbackend.procurement.application.ProcurementRequestDetails;
 import io.github.yche18.juhengbackend.procurement.application.ProcurementRequestQueryService;
+import io.github.yche18.juhengbackend.procurement.application.UpdateProcurementRequestService;
 import io.github.yche18.juhengbackend.procurement.domain.ProcurementRequestStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -17,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -37,6 +39,7 @@ public class ProcurementRequestController
     private final CurrentUserProvider currentUserProvider;
     private final CreateProcurementRequestService createService;
     private final ProcurementRequestQueryService queryService;
+    private final UpdateProcurementRequestService updateService;
 
     /**
      * 创建采购申请 Controller。
@@ -44,15 +47,18 @@ public class ProcurementRequestController
      * @param currentUserProvider 可信当前用户提供端口
      * @param createService 创建草稿应用服务
      * @param queryService 查看本人申请的查询服务
+     * @param updateService 修改本人草稿的应用服务
      */
     public ProcurementRequestController(
             CurrentUserProvider currentUserProvider,
             CreateProcurementRequestService createService,
-            ProcurementRequestQueryService queryService)
+            ProcurementRequestQueryService queryService,
+            UpdateProcurementRequestService updateService)
     {
         this.currentUserProvider = currentUserProvider;
         this.createService = createService;
         this.queryService = queryService;
+        this.updateService = updateService;
     }
 
     /**
@@ -109,6 +115,26 @@ public class ProcurementRequestController
     {
         CurrentUser currentUser = currentUserProvider.getCurrentUser();
         ProcurementRequestDetails details = queryService.getOwn(requestId, currentUser);
+        return ProcurementRequestDetailResponse.from(details);
+    }
+
+    /**
+     * 使用完整可编辑快照和当前版本修改本人尚未提交的采购草稿。
+     *
+     * @param requestId 申请标识
+     * @param request 修改版本与完整可编辑字段
+     * @return 已保存的新版本详情
+     */
+    @PutMapping("/{requestId}")
+    public ProcurementRequestDetailResponse updateDraft(
+            @PathVariable UUID requestId,
+            @Valid @RequestBody UpdateProcurementRequestRequest request)
+    {
+        CurrentUser currentUser = currentUserProvider.getCurrentUser();
+        ProcurementRequestDetails details = updateService.update(
+                requestId,
+                request.toCommand(),
+                currentUser);
         return ProcurementRequestDetailResponse.from(details);
     }
 }

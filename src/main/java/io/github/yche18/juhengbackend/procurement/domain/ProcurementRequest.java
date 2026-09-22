@@ -1,5 +1,7 @@
 package io.github.yche18.juhengbackend.procurement.domain;
 
+import io.github.yche18.juhengbackend.common.error.BusinessConflictException;
+import io.github.yche18.juhengbackend.common.error.ConcurrentUpdateException;
 import io.github.yche18.juhengbackend.identity.domain.UserId;
 
 import java.time.Instant;
@@ -69,6 +71,116 @@ public final class ProcurementRequest
                 0,
                 createdAt,
                 createdAt,
+                items);
+    }
+
+    /**
+     * 从可信持久化快照恢复采购申请聚合，并重新验证聚合级不变量。
+     *
+     * @param id 申请标识
+     * @param businessNumber 稳定业务编号
+     * @param creatorId 创建者
+     * @param title 标题
+     * @param purpose 采购目的
+     * @param department 申请部门
+     * @param expectedDeliveryDate 期望交付日期
+     * @param currency 币种
+     * @param status 当前状态
+     * @param version 当前持久化版本
+     * @param createdAt 创建时间
+     * @param updatedAt 最后更新时间
+     * @param items 当前采购项快照
+     * @return 已恢复的采购申请聚合
+     */
+    public static ProcurementRequest restore(
+            UUID id,
+            BusinessNumber businessNumber,
+            UserId creatorId,
+            String title,
+            String purpose,
+            String department,
+            LocalDate expectedDeliveryDate,
+            Currency currency,
+            ProcurementRequestStatus status,
+            long version,
+            Instant createdAt,
+            Instant updatedAt,
+            List<ProcurementItem> items)
+    {
+        return new ProcurementRequest(
+                id,
+                businessNumber,
+                creatorId,
+                title,
+                purpose,
+                department,
+                expectedDeliveryDate,
+                currency,
+                status,
+                version,
+                createdAt,
+                updatedAt,
+                items);
+    }
+
+    /**
+     * 校验草稿状态和调用方版本后，用完整的新快照生成下一个申请版本。
+     *
+     * <p>该行为不修改当前实例；Repository 随后仍需使用旧版本执行条件更新，
+     * 防止读取完成后发生的数据库并发覆盖。</p>
+     *
+     * @param expectedVersion 客户端读取到的旧版本
+     * @param title 新标题
+     * @param purpose 新采购目的
+     * @param department 新申请部门
+     * @param expectedDeliveryDate 新期望交付日期
+     * @param items 完整的新采购项快照
+     * @param updatedAt 服务端更新时间
+     * @return 版本递增且总额已重新计算的新聚合快照
+     */
+    public ProcurementRequest updateDraft(
+            long expectedVersion,
+            String title,
+            String purpose,
+            String department,
+            LocalDate expectedDeliveryDate,
+            List<ProcurementItem> items,
+            Instant updatedAt)
+    {
+        if (status != ProcurementRequestStatus.DRAFT)
+        {
+            throw new BusinessConflictException(
+                    "Only a draft procurement request can be updated");
+        }
+        if (expectedVersion != version)
+        {
+            throw new ConcurrentUpdateException(
+                    "Expected procurement request version " + expectedVersion
+                            + " but current version is " + version);
+        }
+        long nextVersion;
+        try
+        {
+            nextVersion = Math.addExact(version, 1L);
+        }
+        catch (ArithmeticException exception)
+        {
+            throw new ConcurrentUpdateException(
+                    "Procurement request version cannot be incremented");
+        }
+        return new ProcurementRequest(
+                id,
+                businessNumber,
+                creatorId,
+                title,
+                purpose,
+                department,
+                expectedDeliveryDate,
+                currency,
+                status,
+                nextVersion,
+                createdAt,
+                Objects.requireNonNull(updatedAt, "Updated time must not be null"),
                 items);
     }
 
