@@ -8,5 +8,7 @@ public enum ProcurementRequestStatus
     DRAFT,
     SUBMITTED,
     APPROVED,
-    REJECTED
+    REJECTED;
+
+    public static final String SUPPORTED_PATTERN = "DRAFT|SUBMITTED|APPROVED|REJECTED";
 }

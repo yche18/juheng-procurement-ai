@@ -3,6 +3,7 @@ package io.github.yche18.juhengbackend.common.web.error;
 import io.github.yche18.juhengbackend.common.error.AuthenticationRequiredException;
 import io.github.yche18.juhengbackend.common.error.AuthorizationDeniedException;
 import io.github.yche18.juhengbackend.common.error.BusinessConflictException;
+import io.github.yche18.juhengbackend.common.error.ResourceNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -124,6 +126,21 @@ public class GlobalExceptionHandler
     }
 
     /**
+     * 将路径变量或查询参数的类型转换失败映射为安全的请求格式错误。
+     *
+     * @param exception Spring MVC 参数类型转换异常
+     * @param request 当前 HTTP 请求
+     * @return HTTP 400 统一错误响应
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    ResponseEntity<ApiErrorResponse> handleMethodArgumentTypeMismatch(
+            MethodArgumentTypeMismatchException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, request);
+    }
+
+    /**
      * 将缺少可信身份的异常映射为未认证响应。
      *
      * @param exception 未认证异常；其内部消息不会写入响应
@@ -151,6 +168,21 @@ public class GlobalExceptionHandler
             HttpServletRequest request)
     {
         return error(HttpStatus.FORBIDDEN, ApiErrorCode.ACCESS_DENIED, request);
+    }
+
+    /**
+     * 将当前数据范围内不可见的资源统一映射为不存在，避免泄露资源归属。
+     *
+     * @param exception 资源不存在异常；其内部消息不会写入响应
+     * @param request 当前 HTTP 请求
+     * @return HTTP 404 统一错误响应
+     */
+    @ExceptionHandler(ResourceNotFoundException.class)
+    ResponseEntity<ApiErrorResponse> handleResourceNotFound(
+            ResourceNotFoundException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.NOT_FOUND, ApiErrorCode.RESOURCE_NOT_FOUND, request);
     }
 
     /**
