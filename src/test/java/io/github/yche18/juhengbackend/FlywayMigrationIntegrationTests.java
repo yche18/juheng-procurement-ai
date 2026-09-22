@@ -14,6 +14,9 @@ import org.testcontainers.utility.DockerImageName;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * 使用真实 PostgreSQL 容器验证 Flyway 基线迁移行为。
+ */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @Testcontainers
 class FlywayMigrationIntegrationTests
@@ -32,6 +35,9 @@ class FlywayMigrationIntegrationTests
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    /**
+     * 验证空库会执行一次基线迁移，并且重复迁移不会再次应用同一版本。
+     */
     @Test
     void migratesEmptyPostgreSqlDatabaseAndDoesNotReapplyBaseline()
     {
@@ -44,6 +50,11 @@ class FlywayMigrationIntegrationTests
         assertThat(successfulBaselineMigrations()).isEqualTo(1);
     }
 
+    /**
+     * 查询已经成功执行的 V1 基线迁移数量。
+     *
+     * @return 成功的 V1 迁移记录数量
+     */
     private Integer successfulBaselineMigrations()
     {
         return jdbcTemplate.queryForObject("""

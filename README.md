@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；US-001 建立 PostgreSQL 本地环境、Flyway 基线迁移和真实数据库集成测试，尚不包含业务表。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway 基线和统一 API 错误契约，尚不包含业务表与采购业务。
 
 ## 本地要求
 
@@ -70,6 +70,36 @@ curl http://localhost:8080/actuator/health
 ```
 
 `groups` 表示 Spring Boot 内置的存活与就绪检查分组。健康端点只返回分组名称和汇总状态，不公开组件详情、配置或凭据。
+
+## API 错误响应
+
+API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
+
+```json
+{
+  "code": "VALIDATION_FAILED",
+  "message": "Request validation failed",
+  "path": "/example",
+  "fieldErrors": [
+    {
+      "field": "title",
+      "code": "NotBlank",
+      "message": "must not be blank"
+    }
+  ]
+}
+```
+
+| HTTP 状态 | 错误代码 | 含义 |
+| --- | --- | --- |
+| `400` | `INVALID_REQUEST` | 请求体格式错误 |
+| `400` | `VALIDATION_FAILED` | 字段或参数不符合约束 |
+| `401` | `AUTHENTICATION_REQUIRED` | 请求缺少有效认证身份 |
+| `403` | `ACCESS_DENIED` | 当前身份没有操作权限 |
+| `409` | `BUSINESS_CONFLICT` | 请求与当前业务状态冲突 |
+| `500` | `INTERNAL_ERROR` | 未预期系统错误 |
+
+错误响应不包含被拒绝的字段值、内部异常消息、堆栈或凭据。`fieldErrors` 只在校验失败时包含内容，其他错误返回空数组。US-002 只建立错误契约；真实认证和角色解析由 US-003 实现。
 
 ## 运行测试
 
