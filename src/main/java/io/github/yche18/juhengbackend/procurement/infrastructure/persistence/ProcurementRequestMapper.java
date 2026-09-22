@@ -38,4 +38,27 @@ public interface ProcurementRequestMapper extends BaseMapper<ProcurementRequestD
             @Param("request") ProcurementRequestDO request,
             @Param("expectedCreatorId") String expectedCreatorId,
             @Param("expectedVersion") long expectedVersion);
+
+    /**
+     * 使用创建者、草稿状态和旧版本作为提交状态转换的最终保护条件。
+     *
+     * @param request 已转换为 SUBMITTED 的申请快照
+     * @param expectedCreatorId 可信创建者标识
+     * @param expectedVersion 客户端依据的草稿版本
+     * @return 更新行数；只有 {@code 1} 表示提交成功
+     */
+    @Update("""
+            UPDATE procurement_request
+               SET status = #{request.status},
+                   version = #{request.version},
+                   updated_at = #{request.updatedAt}
+             WHERE id = #{request.id}
+               AND creator_id = #{expectedCreatorId}
+               AND status = 'DRAFT'
+               AND version = #{expectedVersion}
+            """)
+    int submitConditionally(
+            @Param("request") ProcurementRequestDO request,
+            @Param("expectedCreatorId") String expectedCreatorId,
+            @Param("expectedVersion") long expectedVersion);
 }

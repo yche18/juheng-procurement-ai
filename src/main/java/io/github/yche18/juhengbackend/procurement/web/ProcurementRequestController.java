@@ -8,11 +8,15 @@ import io.github.yche18.juhengbackend.procurement.application.ListOwnProcurement
 import io.github.yche18.juhengbackend.procurement.application.ProcurementRequestDetails;
 import io.github.yche18.juhengbackend.procurement.application.ProcurementRequestQueryService;
 import io.github.yche18.juhengbackend.procurement.application.UpdateProcurementRequestService;
+import io.github.yche18.juhengbackend.procurement.application.SubmitProcurementRequestResult;
+import io.github.yche18.juhengbackend.procurement.application.SubmitProcurementRequestService;
 import io.github.yche18.juhengbackend.procurement.domain.ProcurementRequestStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +25,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,6 +45,7 @@ public class ProcurementRequestController
     private final CreateProcurementRequestService createService;
     private final ProcurementRequestQueryService queryService;
     private final UpdateProcurementRequestService updateService;
+    private final SubmitProcurementRequestService submitService;
 
     /**
      * 创建采购申请 Controller。
@@ -48,17 +54,20 @@ public class ProcurementRequestController
      * @param createService 创建草稿应用服务
      * @param queryService 查看本人申请的查询服务
      * @param updateService 修改本人草稿的应用服务
+     * @param submitService 提交本人草稿的应用服务
      */
     public ProcurementRequestController(
             CurrentUserProvider currentUserProvider,
             CreateProcurementRequestService createService,
             ProcurementRequestQueryService queryService,
-            UpdateProcurementRequestService updateService)
+            UpdateProcurementRequestService updateService,
+            SubmitProcurementRequestService submitService)
     {
         this.currentUserProvider = currentUserProvider;
         this.createService = createService;
         this.queryService = queryService;
         this.updateService = updateService;
+        this.submitService = submitService;
     }
 
     /**
@@ -136,5 +145,29 @@ public class ProcurementRequestController
                 request.toCommand(),
                 currentUser);
         return ProcurementRequestDetailResponse.from(details);
+    }
+
+    /**
+     * 使用当前草稿版本和幂等键提交本人采购申请并创建人工审批任务。
+     *
+     * @param requestId 申请标识
+     * @param idempotencyKey 幂等键
+     * @param request 当前草稿版本
+     * @return 提交后的申请与审批任务摘要
+     */
+    @PostMapping("/{requestId}/submit")
+    public SubmitProcurementRequestResponse submit(
+            @PathVariable UUID requestId,
+            @RequestHeader(value = "Idempotency-Key", required = false)
+            @NotBlank @Size(max = 64) String idempotencyKey,
+            @Valid @RequestBody SubmitProcurementRequestRequest request)
+    {
+        CurrentUser currentUser = currentUserProvider.getCurrentUser();
+        SubmitProcurementRequestResult result = submitService.submit(
+                requestId,
+                request.toCommand(),
+                idempotencyKey,
+                currentUser);
+        return SubmitProcurementRequestResponse.from(result);
     }
 }

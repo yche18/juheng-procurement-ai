@@ -1,8 +1,8 @@
 # 据衡 R1 数据库关系模型
 
 - 文档状态：Baselined
-- 版本：1.0
-- 当前物理范围：US-010 创建采购申请草稿
+- 版本：1.1
+- 当前物理范围：截至 US-013 提交采购申请
 - 数据库：PostgreSQL 17
 
 ## 1. 文档目的
@@ -10,9 +10,9 @@
 本文把 R1 概念领域模型转换为可落地的关系模型。它同时保留两种视角：
 
 1. R1 关系演进总览，用来避免当前表结构阻塞后续提交和审批 Story。
-2. 当前 Story 的物理 ERD，只对已经进入实现的表定义完整字段、类型和约束。
+2. 截至当前 Story 的物理 ERD，只对已经进入实现的表定义完整字段、类型和约束。
 
-后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束，禁止在 US-010 中提前创建审批、决定或幂等表。
+后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 只增加提交用例必需的审批任务和幂等记录，不提前创建 US-015 的审批决定。
 
 ## 2. R1 关系演进总览
 
@@ -28,16 +28,16 @@ erDiagram
 
 | 对象 | 首次落库 Story | 当前状态 |
 | --- | --- | --- |
-| `procurement_request` | US-010 | 本次实现 |
-| `procurement_item` | US-010 | 本次实现 |
-| `audit_event` | US-010 | 本次实现 |
-| `approval_task` | US-013 | 仅关系占位 |
+| `procurement_request` | US-010 | 已落库 |
+| `procurement_item` | US-010 | 已落库 |
+| `audit_event` | US-010 | 已落库；US-013 复用 |
+| `approval_task` | US-013 | US-013 计划落库 |
 | `approval_decision` | US-015 | 仅关系占位 |
-| `idempotency_record` | US-013 | 仅关系占位 |
+| `idempotency_record` | US-013 | US-013 计划落库 |
 
-R1 不建立 `user` 表。`creator_id`、`actor_id` 和未来的 `assignee_id` 保存可信认证上下文中的稳定用户 ID，不对客户端提供的身份声明建立信任。
+R1 不建立 `user` 表。`creator_id`、`actor_id` 和 `assignee_id` 保存可信认证上下文中的稳定用户 ID，不对客户端提供的身份声明建立信任。
 
-## 3. US-010 物理 ERD
+## 3. 截至 US-013 的物理 ERD
 
 ```mermaid
 erDiagram
@@ -81,8 +81,36 @@ erDiagram
         varchar request_identifier
     }
 
+    APPROVAL_TASK {
+        uuid id PK
+        uuid procurement_request_id FK,UK
+        varchar assignee_id
+        varchar status
+        bigint version
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
+    IDEMPOTENCY_RECORD {
+        uuid id PK
+        varchar caller_id
+        varchar operation
+        varchar target_type
+        uuid target_id
+        varchar idempotency_key
+        char request_fingerprint
+        varchar status
+        varchar result_reference_type
+        uuid result_reference_id
+        bigint result_target_version
+        timestamptz created_at
+        timestamptz updated_at
+    }
+
     PROCUREMENT_REQUEST ||--|{ PROCUREMENT_ITEM : owns
     PROCUREMENT_REQUEST ||--o{ AUDIT_EVENT : audit_scope
+    PROCUREMENT_REQUEST ||--o| APPROVAL_TASK : receives
+    PROCUREMENT_REQUEST ||--o{ IDEMPOTENCY_RECORD : submit_target
 ```
 
 ## 4. 表职责与关键约束
@@ -110,9 +138,30 @@ erDiagram
 
 - 审计事件只追加，不提供普通业务更新或删除端口。
 - `procurement_request_id` 是 R1 审计查询的数据范围根；`target_type + target_id` 表示本次动作直接作用的对象。
-- 当前创建事件的 action 为 `PROCUREMENT_REQUEST_CREATED`，result 为 `SUCCESS`。
+- 已支持的 action 包括 `PROCUREMENT_REQUEST_CREATED`、`PROCUREMENT_REQUEST_UPDATED`；US-013 增加 `PROCUREMENT_REQUEST_SUBMITTED` 和 `APPROVAL_TASK_ASSIGNED`，成功事件的 result 为 `SUCCESS`。
 - `request_identifier` 由服务端生成，不接受客户端身份或审计归属覆盖。
-- 申请、采购项和创建审计必须在同一个本地数据库事务中提交或回滚。
+- 创建或修改申请时，相应申请数据和审计必须在同一个本地数据库事务中提交或回滚。提交申请时，申请状态、审批任务、两个审计事件和幂等完成结果必须整体提交或整体回滚。
+
+### 4.4 approval_task
+
+- `id` 使用 Java 生成的 UUID；`procurement_request_id` 外键关联被审批的采购申请。
+- 字段类型为：`id uuid`、`procurement_request_id uuid`、`assignee_id varchar(100)`、`status varchar(20)`、`version bigint`、`created_at timestamptz`、`updated_at timestamptz`，全部非空。
+- R1 不支持撤回、重新提交和多级审批，因此 `procurement_request_id` 使用唯一约束，表示一份申请在 R1 最多创建一个审批任务，而不只是“最多一个活动任务”。
+- `assignee_id` 只能来自服务端审批路由结果，不能接受客户端指定；路由到申请创建者本人时不得创建任务。
+- 创建时 `status` 必须为 `PENDING`，后续 US-015 可转换为 `APPROVED` 或 `REJECTED`；数据库检查约束允许这三个 R1 状态。
+- `version` 初始为 `0`，为 US-015 的审批决定提供乐观并发控制。`created_at`、`updated_at` 使用服务端时间。
+- 任务唯一性由提交用例与 `UNIQUE (procurement_request_id)` 共同保护；并发使用不同幂等键提交同一申请时，该约束仍是最后一道防线。
+
+### 4.5 idempotency_record
+
+- 幂等作用域由 `caller_id + operation + target_type + target_id + idempotency_key` 组成，并建立组合唯一约束。相同 key 可以安全地用于不同调用者、操作或目标。
+- 字段类型为：`id uuid`、`caller_id varchar(100)`、`operation varchar(80)`、`target_type varchar(50)`、`target_id uuid`、`idempotency_key varchar(64)`、`request_fingerprint char(64)`、`status varchar(20)`、`result_reference_type varchar(50)`、`result_reference_id uuid`、`result_target_version bigint`、`created_at timestamptz`、`updated_at timestamptz`。只有三个结果字段可在 `IN_PROGRESS` 状态下为空。
+- US-013 的 `operation` 为 `SUBMIT_PROCUREMENT_REQUEST`，`target_type` 为 `PROCUREMENT_REQUEST`，`target_id` 为待提交申请 ID。
+- `request_fingerprint` 是服务端对影响命令语义的规范化输入计算出的 SHA-256 十六进制摘要；US-013 至少包含客户端提交的申请版本。同一作用域下摘要不同必须返回幂等冲突。
+- 状态只包含 `IN_PROGRESS` 和 `COMPLETED`。首次请求通过 `INSERT ... ON CONFLICT DO NOTHING` 竞争执行权；并发相同请求由 PostgreSQL 唯一索引协调，失败事务回滚后不保留伪完成记录。
+- `result_reference_type`、`result_reference_id` 和 `result_target_version` 保存重放响应所需的最小结果引用。`IN_PROGRESS` 时三者必须为空，`COMPLETED` 时三者必须完整。
+- 结果引用是跨用例的通用引用，不建立多态外键。Application 只能写入本次事务已经成功持久化的结果，并在读取时按可信操作类型解析。
+- 幂等记录与业务副作用处于同一个本地数据库事务：业务失败时记录一起回滚，业务成功但幂等结果未完成时整个事务不得提交。
 
 ## 5. 数据库与 Java 双重保护
 
@@ -126,13 +175,26 @@ erDiagram
 | 初始状态为 DRAFT | Domain 工厂固定设置 | 创建迁移允许全部 R1 状态，Application 只写 `DRAFT` |
 | 业务编号唯一 | 业务编号生成器 | UNIQUE |
 | 申请与审计原子提交 | Application `@Transactional` | 同一 PostgreSQL 事务与外键 |
+| 只有 DRAFT 可提交 | Domain 状态转换 | 条件更新限定 `status = 'DRAFT'` 与期望 `version` |
+| 一份 R1 申请最多一个审批任务 | 提交用例只创建一次 | `UNIQUE (procurement_request_id)` |
+| 审批人不能是申请人 | 审批路由显式返回自审失败 | 数据库无法跨表表达，由事务和集成测试保证 |
+| 同一幂等作用域唯一 | Application 解释获取、重放与冲突 | 五列组合 UNIQUE，原子插入竞争执行权 |
+| 完成幂等记录必须有结果 | 幂等组件只在业务写入成功后完成 | `CHECK` 约束状态与三个结果字段的空值组合 |
+| 提交副作用原子完成 | Application `@Transactional` | 申请、任务、审计、幂等记录位于同一事务 |
 
 数据库不能独立表达“一个申请至少一条明细”这种跨表计数不变量，R1 不为此引入触发器。该规则由 Domain 创建工厂、Application 事务和集成测试共同保证。
 
-## 6. 当前明确不落库
+## 6. Flyway 演进边界
+
+- `V1` 建立空基线；`V2` 创建采购申请、采购项、审计事件和业务编号序列；`V3` 增加采购申请查询索引。
+- US-013 使用独立的 `V4` 创建 `approval_task` 和 `idempotency_record`，不改写已经执行过的迁移。
+- `procurement_request.status` 在 `V2` 已允许 `SUBMITTED`，`audit_event` 也可承载新的 action，因此 V4 不需要为提交动作修改这两张表。
+- V4 不创建 `approval_decision`，也不预建材料、证据、风险或 AI 相关结构。
+
+## 7. 当前明确不落库
 
 - 用户、角色和组织表。
-- 审批任务、审批决定与幂等记录。
+- 审批决定；它在 US-015 首次落库。
 - 供应商、报价、合同和材料。
 - Evidence、Risk、Analysis Run、Recommendation、Agent Run 和 Tool Call。
 - 商品主数据表；品类使用受控枚举和数据库检查约束。

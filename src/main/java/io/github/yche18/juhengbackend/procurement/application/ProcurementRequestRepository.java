@@ -36,4 +36,13 @@ public interface ProcurementRequestRepository
      * @return 主记录恰好更新一行时为 {@code true}，否则表示并发冲突
      */
     boolean updateDraftConditionally(ProcurementRequest request, long expectedVersion);
+
+    /**
+     * 仅当数据库中的创建者、状态和版本仍符合预期时保存提交状态。
+     *
+     * @param request 已转换为 SUBMITTED 的新版本聚合
+     * @param expectedVersion 条件更新使用的草稿版本
+     * @return 主记录恰好更新一行时为 {@code true}
+     */
+    boolean submitConditionally(ProcurementRequest request, long expectedVersion);
 }

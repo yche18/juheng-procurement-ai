@@ -1,8 +1,8 @@
 # 据衡 R1 领域模型
 
 - 文档状态：Baselined
-- 版本：1.0
-- 日期：2026-09-21
+- 版本：1.1
+- 日期：2026-09-22
 - 适用范围：R1 采购授权核心
 - 需求基线：`docs/REQUIREMENTS.md` 1.1
 - Story 基线：`docs/USER_STORIES.md` 1.0
@@ -305,7 +305,7 @@ R1 审计至少包含 actor、action、target、timestamp、result 和 request/i
 - 失败结果不得携带可用 `assigneeId`，并至少区分 `NO_APPROVER`、`MULTIPLE_APPROVERS` 和 `SELF_ASSIGNMENT`。
 - 配置读取失败或基础设施异常仍按系统失败处理，不伪装成上述业务失败。
 
-`RoutingResult` 是概念结果类型；具体采用 record、sealed hierarchy 或普通类，在 `US-013` 实施计划中决定。
+`RoutingResult` 已在 `US-013` 中实现为互斥字段的不可变 record：成功时只有 `assigneeId`，失败时只有 `failureReason`。
 
 ## 6. 状态模型
 
@@ -433,15 +433,13 @@ Domain 对象不调用 Repository，也不自行开启事务。Application Servi
 | ApprovalTask/Decision | `FR-APP-003`～`007`、`FR-IAM-004`、`BR-005`～`008` | `US-014`、`US-015` |
 | AuditEvent | `FR-AUD-001`、`003`、`005`、`006` | `US-010`、`US-012`、`US-013`、`US-015`、`US-016` |
 
-## 11. 仍待对应 Story 决定
+## 11. 已确定与仍待对应 Story 决定
 
-以下事项不阻塞概念模型建立基线，但必须在相关 Story 进入 `READY` 前确定：
-
-1. `US-003` 使用哪种最小认证方式以及演示身份如何初始化。
-2. `US-010` 的业务编号格式和生成策略。
-3. `US-013` 的唯一审批人路由规则及配置来源。
-4. R1 是否提供 `ADMIN` 业务接口；当前模型只保留角色。
-5. 各聚合版本最终采用 MyBatis-Plus 乐观锁插件、显式版本条件更新或两者组合；验收语义保持不变。
+1. `US-003` 已采用无状态 HTTP Basic 和内存演示身份，通过 `CurrentUserProvider` 隔离认证适配器。
+2. `US-010` 已采用 `PR-yyyyMMdd-数据库序列值` 业务编号；序列保证唯一递增但不保证无空洞。
+3. `US-013` 已采用配置候选人的单审批人路由；零个、多个或唯一候选人为申请人本人时均显式失败。
+4. `US-012`、`US-013` 已采用显式 `status + version` 条件更新；审批任务的终态条件更新在 `US-015` 决定。
+5. R1 是否提供 `ADMIN` 业务接口仍待决定；当前模型只保留角色。
 
 ## 12. 评审检查
 

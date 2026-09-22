@@ -12,6 +12,9 @@ public enum ApiErrorCode
     AUTHENTICATION_REQUIRED("Authentication is required"),
     ACCESS_DENIED("Access is denied"),
     RESOURCE_NOT_FOUND("Resource was not found"),
+    APPROVAL_ROUTING_FAILED("No unique valid approver could be resolved"),
+    IDEMPOTENCY_CONFLICT("Idempotency key conflicts with a different request"),
+    IDEMPOTENCY_IN_PROGRESS("An identical request is still being processed"),
     BUSINESS_CONFLICT("Request conflicts with the current business state"),
     CONCURRENT_MODIFICATION("Resource was modified by another request"),
     INTERNAL_ERROR("An unexpected error occurred");

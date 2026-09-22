@@ -1,6 +1,7 @@
 package io.github.yche18.juhengbackend.procurement.infrastructure.persistence;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import io.github.yche18.juhengbackend.common.error.BusinessValidationException;
 import io.github.yche18.juhengbackend.identity.domain.UserId;
 import io.github.yche18.juhengbackend.procurement.application.ProcurementRequestRepository;
 import io.github.yche18.juhengbackend.procurement.domain.BusinessNumber;
@@ -138,6 +139,32 @@ public class MyBatisProcurementRequestRepository implements ProcurementRequestRe
     }
 
     /**
+     * 只条件更新聚合根的状态、版本和时间，不重写提交时已冻结的采购项。
+     *
+     * @param request 已转换为 SUBMITTED 的申请聚合
+     * @param expectedVersion 数据库应仍持有的草稿版本
+     * @return 是否成功更新恰好一条主记录
+     */
+    @Override
+    public boolean submitConditionally(ProcurementRequest request, long expectedVersion)
+    {
+        int updatedRequests = requestMapper.submitConditionally(
+                toRequestDO(request),
+                request.creatorId().value(),
+                expectedVersion);
+        if (updatedRequests == 0)
+        {
+            return false;
+        }
+        if (updatedRequests != 1)
+        {
+            throw new IllegalStateException(
+                    "Expected exactly one procurement request row to be submitted");
+        }
+        return true;
+    }
+
+    /**
      * 将持久化主记录和领域采购项恢复为聚合。
      *
      * @param request 申请持久化对象
@@ -148,6 +175,11 @@ public class MyBatisProcurementRequestRepository implements ProcurementRequestRe
             ProcurementRequestDO request,
             List<ProcurementItem> items)
     {
+        if (items.isEmpty())
+        {
+            throw new BusinessValidationException(
+                    "Procurement request must contain at least one persisted item");
+        }
         return ProcurementRequest.restore(
                 request.id(),
                 new BusinessNumber(request.businessNumber()),
