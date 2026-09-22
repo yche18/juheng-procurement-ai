@@ -296,6 +296,7 @@ R1 设计基线由以下文档共同组成：
 - `docs/ARCHITECTURE.md`：模块、分层、依赖方向和事务边界。
 - `docs/R1_DOMAIN_MODEL.md`：领域概念、聚合、关系、状态和业务不变量。
 - `docs/R1_SEQUENCE_DIAGRAMS.md`：创建/修改、提交、批准/驳回三个关键运行流程。
+- `docs/R1_ERD.md`：R1 关系演进总览，以及当前 Story 已落库部分的物理字段和约束。
 - `docs/USER_STORIES.md`：可以被测试验证的行为边界。
 
 该基线不包含 Persistence DO、Mapper、数据库 ERD、Flyway SQL、REST 路径、DTO 或具体锁实现。这些内容只在对应 User Story 启动时设计，且必须服从本基线；若实现发现基线无法满足验收条件，应先修正文档，并在架构影响显著时新增 ADR，而不是在代码中静默改变设计。
