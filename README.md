@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway 基线、统一 API 错误契约和本地演示身份，尚不包含业务表与采购业务。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及创建采购申请草稿的首个业务垂直切片。
 
 ## 本地要求
 
@@ -114,6 +114,36 @@ curl -u demo-requester:juheng-local http://localhost:8080/api/current-user
 
 业务代码只使用服务端认证上下文中的 `userId` 和角色集合；请求体、查询参数或自定义请求头中的身份声明都不会覆盖它。HTTP Basic 凭据只做本地演示，任何非本机部署都必须更换密码并使用 HTTPS，后续可在不改变应用层 `CurrentUser` 契约的前提下替换为正式身份供应商。
 
+## 创建采购申请草稿
+
+具有 `REQUESTER` 角色的用户可以调用 `POST /api/procurement-requests` 创建草稿。创建者、币种 `CNY`、状态 `DRAFT`、版本、业务编号、预计总额和审计字段均由服务端控制。
+
+```shell
+curl -u demo-requester:juheng-local \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "研发电脑采购",
+    "purpose": "补充开发设备",
+    "department": "研发部",
+    "expectedDeliveryDate": "2026-10-01",
+    "items": [
+      {
+        "name": "开发笔记本",
+        "categoryCode": "LAPTOP",
+        "specification": "32GB 内存",
+        "quantity": 2,
+        "unit": "台",
+        "estimatedUnitPrice": 8999.00
+      }
+    ]
+  }' \
+  http://localhost:8080/api/procurement-requests
+```
+
+成功时返回 HTTP `201`。业务编号格式为 `PR-yyyyMMdd-序列值`；序列保证唯一但不承诺连续。当前受控品类为 `LAPTOP`、`MONITOR`、`OFFICE_CHAIR` 和 `SOFTWARE_LICENSE`。数量最多四位小数，单价和金额使用两位小数；每行按 `quantity × estimatedUnitPrice` 计算并以 `HALF_UP` 舍入，总额为各行舍入后金额之和。
+
+申请、采购项和 `PROCUREMENT_REQUEST_CREATED` 审计事件在同一个 PostgreSQL 事务中保存：任一写入失败时全部回滚。当前 Story 不包含草稿查询、修改、提交或审批接口。
+
 ## API 错误响应
 
 API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
@@ -160,4 +190,4 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库迁移、迁移校验以及重复执行不会再次应用基线。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1/V2、迁移校验以及重复执行不会再次应用已有版本；采购草稿集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段和事务回滚。
