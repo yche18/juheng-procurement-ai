@@ -346,11 +346,11 @@ Web Controller 不开启或拼接业务事务。Domain 对象不调用 Repositor
 - `US-010` 使用 `PR-yyyyMMdd-数据库序列值`，唯一但允许事务回滚形成序列空洞。
 - `US-013` 从 `JUHENG_APPROVAL_ASSIGNEE_IDS` 读取配置候选人，只接受唯一且非申请人本人的结果。
 - `US-013` 的幂等记录使用 `IN_PROGRESS / COMPLETED`；同事务并发请求通常等待首次短事务完成后直接 replay，若读到未完成记录则返回明确处理中错误。
-- `US-012`、`US-013` 使用显式状态和版本条件更新；`US-015` 的任务终态条件更新与决定唯一约束仍在该 Story 实施时确定。
+- `US-012`、`US-013` 使用显式状态和版本条件更新；`US-015` 使用 `approval_task.id + assignee_id + PENDING + version` 条件更新竞争任务终态，并以 `UNIQUE (approval_task_id)` 保证每个任务至多一个决定。
 
 这些决策不能改变本文规定的可观察结果和失败不变量。
 
-`IN_PROGRESS` 是幂等端口必须能够表达的概念结果。US-013 将可观察到的未完成记录映射为 `409 IDEMPOTENCY_IN_PROGRESS`；PostgreSQL 唯一索引正常协调的并发请求会等待首个短事务完成后直接 replay，并保持“最多一次副作用”。US-015 复用该语义时仍需验证审批命令的等待边界。
+`IN_PROGRESS` 是幂等端口必须能够表达的概念结果。US-013 将可观察到的未完成记录映射为 `409 IDEMPOTENCY_IN_PROGRESS`；PostgreSQL 唯一索引正常协调的并发请求会等待首个短事务完成后直接 replay，并保持“最多一次副作用”。US-015 已复用并通过真实 PostgreSQL 并发测试验证该语义：相同键与载荷返回同一决定，相同键改变载荷返回幂等冲突。
 
 ## 9. 评审检查
 

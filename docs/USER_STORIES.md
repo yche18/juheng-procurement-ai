@@ -527,7 +527,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-014`、ADR-002 |
 | Requirements | `FR-IAM-004`、`FR-APP-004`～`FR-APP-007`、`FR-AUD-001`、`FR-AUD-003`、`FR-AUD-005`、`BR-005`～`BR-008`、`NFR-COR-003` |
 

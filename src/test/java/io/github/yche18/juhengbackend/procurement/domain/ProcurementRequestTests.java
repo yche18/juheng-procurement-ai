@@ -216,6 +216,41 @@ class ProcurementRequestTests
     }
 
     /**
+     * 验证已提交申请可以进入批准或驳回终态并递增版本。
+     */
+    @Test
+    void marksSubmittedRequestAsApprovedOrRejected()
+    {
+        ProcurementRequest submitted = restoredRequest(ProcurementRequestStatus.SUBMITTED, 4);
+        Instant decidedAt = Instant.parse("2026-09-23T03:04:05Z");
+
+        ProcurementRequest approved = submitted.markApproved(decidedAt);
+        ProcurementRequest rejected = submitted.markRejected(decidedAt);
+
+        assertThat(approved.status()).isEqualTo(ProcurementRequestStatus.APPROVED);
+        assertThat(rejected.status()).isEqualTo(ProcurementRequestStatus.REJECTED);
+        assertThat(approved.version()).isEqualTo(5L);
+        assertThat(rejected.version()).isEqualTo(5L);
+        assertThat(approved.updatedAt()).isEqualTo(decidedAt);
+    }
+
+    /**
+     * 验证草稿和既有终态不能通过最终审批转换改变状态。
+     */
+    @Test
+    void rejectsDecisionOutsideSubmittedState()
+    {
+        Instant decidedAt = Instant.parse("2026-09-23T03:04:05Z");
+
+        assertThatThrownBy(() -> restoredRequest(
+                ProcurementRequestStatus.DRAFT, 0).markApproved(decidedAt))
+                .isInstanceOf(BusinessConflictException.class);
+        assertThatThrownBy(() -> restoredRequest(
+                ProcurementRequestStatus.APPROVED, 2).markRejected(decidedAt))
+                .isInstanceOf(BusinessConflictException.class);
+    }
+
+    /**
      * 创建测试用采购草稿。
      *
      * @param items 采购项集合

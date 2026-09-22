@@ -438,7 +438,7 @@ Domain 对象不调用 Repository，也不自行开启事务。Application Servi
 1. `US-003` 已采用无状态 HTTP Basic 和内存演示身份，通过 `CurrentUserProvider` 隔离认证适配器。
 2. `US-010` 已采用 `PR-yyyyMMdd-数据库序列值` 业务编号；序列保证唯一递增但不保证无空洞。
 3. `US-013` 已采用配置候选人的单审批人路由；零个、多个或唯一候选人为申请人本人时均显式失败。
-4. `US-012`、`US-013` 已采用显式 `status + version` 条件更新；审批任务的终态条件更新在 `US-015` 决定。
+4. `US-012`、`US-013` 已采用显式 `status + version` 条件更新；`US-015` 对审批任务采用 `id + assignee + PENDING + version` 条件更新，并由每任务唯一决定约束共同防止双重决定。
 5. R1 是否提供 `ADMIN` 业务接口仍待决定；当前模型只保留角色。
 
 ## 12. 评审检查

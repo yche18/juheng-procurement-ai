@@ -100,6 +100,30 @@ public class MyBatisProcurementRequestRepository implements ProcurementRequestRe
     }
 
     /**
+     * 按已由授权任务派生出的申请标识加载完整聚合。
+     *
+     * @param requestId 申请标识
+     * @return 完整申请聚合
+     */
+    @Override
+    public Optional<ProcurementRequest> findById(UUID requestId)
+    {
+        ProcurementRequestDO request = requestMapper.selectById(requestId);
+        if (request == null)
+        {
+            return Optional.empty();
+        }
+        List<ProcurementItem> items = itemMapper.selectList(
+                        new QueryWrapper<ProcurementItemDO>()
+                                .eq(REQUEST_FOREIGN_KEY_COLUMN, request.id())
+                                .orderByAsc(LINE_NUMBER_COLUMN))
+                .stream()
+                .map(this::toDomainItem)
+                .toList();
+        return Optional.of(toDomain(request, items));
+    }
+
+    /**
      * 先竞争性更新聚合根；只有主表条件更新成功后才替换全部采购项。
      *
      * <p>调用方的应用事务保证主表、明细和审计任一步失败时整体回滚。</p>
@@ -160,6 +184,36 @@ public class MyBatisProcurementRequestRepository implements ProcurementRequestRe
         {
             throw new IllegalStateException(
                     "Expected exactly one procurement request row to be submitted");
+        }
+        return true;
+    }
+
+    /**
+     * 使用已提交状态和加载版本作为最终审批写入的数据库保护条件。
+     *
+     * @param request 已进入审批终态的新聚合快照
+     * @param expectedVersion 加载时的申请版本
+     * @return 是否恰好更新一条申请记录
+     */
+    @Override
+    public boolean saveTerminalStateConditionally(
+            ProcurementRequest request,
+            long expectedVersion)
+    {
+        int updatedRows = requestMapper.saveTerminalStateConditionally(
+                request.id(),
+                expectedVersion,
+                request.status().name(),
+                request.version(),
+                request.updatedAt());
+        if (updatedRows == 0)
+        {
+            return false;
+        }
+        if (updatedRows != 1)
+        {
+            throw new IllegalStateException(
+                    "Expected exactly one procurement request row to be decided");
         }
         return true;
     }

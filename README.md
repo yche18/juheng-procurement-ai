@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改、幂等提交和审批人待办查询。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改、幂等提交、审批人待办查询和并发安全的人工批准/驳回。
 
 ## 本地要求
 
@@ -245,7 +245,35 @@ curl -u demo-approver:juheng-local \
   http://localhost:8080/api/approval-tasks/替换为任务UUID
 ```
 
-详情包含任务状态、受理人、任务版本、申请核心字段、申请版本以及按行号排序的采购项。数据库任务查询直接使用认证上下文中的用户 ID 限定 `assignee_id`；客户端不能指定查询审批人。他人任务与不存在的任务统一返回 `404 RESOURCE_NOT_FOUND`，并且不会返回关联申请内容。当前接口只读，不执行批准、驳回、转派或批量审批。
+详情包含任务状态、受理人、任务版本、申请核心字段、申请版本以及按行号排序的采购项。数据库任务查询直接使用认证上下文中的用户 ID 限定 `assignee_id`；客户端不能指定查询审批人。他人任务与不存在的任务统一返回 `404 RESOURCE_NOT_FOUND`，并且不会返回关联申请内容。
+
+## 人工批准或驳回
+
+受理审批人可以对仍为 `PENDING` 的本人任务发出两个独立命令。两者都必须携带详情接口返回的 `approvalTaskVersion` 和最多 64 个字符的 `Idempotency-Key`；批准意见可选：
+
+```shell
+curl -u demo-approver:juheng-local \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: approve-task-001" \
+  -d '{"approvalTaskVersion": 0, "comment": "同意采购"}' \
+  http://localhost:8080/api/approval-tasks/替换为任务UUID/approve
+```
+
+驳回原因必填，空白原因返回 `400 VALIDATION_FAILED` 和 `comment` 字段错误：
+
+```shell
+curl -u demo-approver:juheng-local \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: reject-task-001" \
+  -d '{"approvalTaskVersion": 0, "comment": "预算依据不足"}' \
+  http://localhost:8080/api/approval-tasks/替换为任务UUID/reject
+```
+
+成功响应包含任务终态与新版本，以及唯一决定的 `decisionId`、`decision`、可信 `actorId`、服务端 `decidedAt` 和意见。任务终态、申请终态、唯一决定、审计事件和幂等结果处于同一个 PostgreSQL 事务；任一写入失败会整体回滚。
+
+任务只按认证上下文中的受理人加载，申请人即使同时拥有 `APPROVER` 角色也不能审批自己的申请。相同调用者以相同键和载荷重试会返回第一次决定；同键改变决定、版本或意见返回 `409 IDEMPOTENCY_CONFLICT`；不同键并发批准和驳回时最多一个成功，失败方得到明确的业务或并发冲突。LLM 和 Agent 均没有调用这些命令的入口。
 
 ## API 错误响应
 
