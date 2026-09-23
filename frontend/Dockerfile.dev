@@ -1,0 +1,13 @@
+FROM node:24.15.0-alpine
+
+RUN npm install --global npm@11.6.2
+
+WORKDIR /workspace/frontend
+
+COPY docker-entrypoint.sh /usr/local/bin/juheng-frontend-entrypoint
+RUN chmod +x /usr/local/bin/juheng-frontend-entrypoint
+
+EXPOSE 5173
+
+ENTRYPOINT ["juheng-frontend-entrypoint"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

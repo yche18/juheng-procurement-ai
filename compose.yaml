@@ -15,5 +15,24 @@ services:
     volumes:
       - juheng-postgres-data:/var/lib/postgresql/data
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    init: true
+    environment:
+      JUHENG_FRONTEND_PROXY_TARGET: ${JUHENG_FRONTEND_PROXY_TARGET:-http://host.docker.internal:8080}
+      JUHENG_FRONTEND_USE_POLLING: "true"
+    ports:
+      - "5173:5173"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./frontend:/workspace/frontend
+      - juheng-frontend-node-modules:/workspace/frontend/node_modules
+      - juheng-frontend-npm-cache:/root/.npm
+
 volumes:
   juheng-postgres-data:
+  juheng-frontend-node-modules:
+  juheng-frontend-npm-cache:

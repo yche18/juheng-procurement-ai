@@ -1,2 +1,16 @@
 /mvnw text eol=lf
 *.cmd text eol=crlf
+compose.yaml text eol=lf
+frontend/.dockerignore text eol=lf
+frontend/.nvmrc text eol=lf
+frontend/.npmrc text eol=lf
+frontend/Dockerfile.dev text eol=lf
+frontend/*.sh text eol=lf
+frontend/*.html text eol=lf
+frontend/*.json text eol=lf
+frontend/*.js text eol=lf
+frontend/*.ts text eol=lf
+frontend/*.md text eol=lf
+frontend/src/**/*.css text eol=lf
+frontend/src/**/*.ts text eol=lf
+frontend/src/**/*.tsx text eol=lf

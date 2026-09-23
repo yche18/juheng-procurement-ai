@@ -3,7 +3,7 @@
 - 文档状态：Baselined
 - 版本：1.0
 - 日期：2026-09-23
-- 当前实现状态：尚未初始化；本文约束 `FE-000` 及后续 R1 Frontend Task
+- 当前实现状态：`FE-000` 已实现并进入评审；采购、审批和审计业务页面尚未实现
 
 ## 1. 架构目标
 
@@ -45,9 +45,11 @@ juheng-backend/
 └─ compose.yaml
 ```
 
-R1 本地运行三个独立进程：PostgreSQL、Spring Boot 和 Vite Dev Server。Vite 将 `/api` 代理到 Spring Boot，避免为本地开发扩大 CORS 配置。前端生产构建只验证静态产物；是否由 Spring Boot 托管、独立静态部署或通过反向代理发布留到 Demo/Deployment Story 决定。
+R1 本地运行三个独立进程：PostgreSQL、Spring Boot 和 Vite Dev Server。Vite Dev Server 默认通过 Docker Compose 运行，源码以 bind mount 挂载，`node_modules` 和 npm cache 使用 Docker volume；这样本机不需要安装前端 Node/npm，也不会混用 Windows 与 Linux 原生依赖。容器内 Vite 将 `/api` 代理到宿主机 Spring Boot，Windows/macOS 使用 `host.docker.internal`，Linux 由 Compose 的 `host-gateway` 映射提供同名地址。浏览器仍通过 source map 调试源码，容器内文件监听使用 polling 保证 bind mount 修改可触发 HMR。
 
-`FE-000` 固定并记录 Node/npm 运行版本，提交 `package-lock.json`。依赖使用明确版本并由 lockfile 保证可复现，不使用运行时 CDN。
+该容器只用于本地开发和自动化检查，不代表生产部署方式。前端生产构建只验证静态产物；是否由 Spring Boot 托管、独立静态部署或通过反向代理发布留到 Demo/Deployment Story 决定。需要脱离 Docker 排查前端工具链时仍可原生运行，但必须使用仓库记录的 Node/npm 版本。
+
+`FE-000` 在开发镜像、`.nvmrc` 和 `package.json` 中固定并记录 Node/npm 运行版本，提交 `package-lock.json`。依赖使用明确版本并由 lockfile 保证可复现，不使用运行时 CDN。
 
 ## 4. 代码组织
 
