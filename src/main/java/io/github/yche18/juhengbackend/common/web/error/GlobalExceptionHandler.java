@@ -18,6 +18,7 @@ import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.method.ParameterValidationResult;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -150,6 +151,21 @@ public class GlobalExceptionHandler
             HttpServletRequest request)
     {
         return error(HttpStatus.BAD_REQUEST, ApiErrorCode.INVALID_REQUEST, request);
+    }
+
+    /**
+     * 将未开放的 HTTP 方法映射为稳定的只读边界响应。
+     *
+     * @param exception Spring MVC 抛出的请求方法不支持异常
+     * @param request 当前 HTTP 请求
+     * @return HTTP 405 统一错误响应
+     */
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException exception,
+            HttpServletRequest request)
+    {
+        return error(HttpStatus.METHOD_NOT_ALLOWED, ApiErrorCode.METHOD_NOT_ALLOWED, request);
     }
 
     /**

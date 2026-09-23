@@ -26,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -95,6 +96,20 @@ class GlobalExceptionHandlerTests
 
         assertThat(result.getResponse().getContentAsString())
                 .doesNotContain("JsonEOFException", "HttpMessageNotReadableException", "stackTrace");
+    }
+
+    /**
+     * 验证未开放的 HTTP 方法返回稳定 405，而不是落入 500 兜底。
+     */
+    @Test
+    void mapsUnsupportedRequestMethod() throws Exception
+    {
+        mockMvc.perform(put("/test/errors/parameter-validation"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
+                .andExpect(jsonPath("$.message").value("Request method is not allowed"))
+                .andExpect(jsonPath("$.path").value("/test/errors/parameter-validation"))
+                .andExpect(jsonPath("$.fieldErrors").isEmpty());
     }
 
     /**

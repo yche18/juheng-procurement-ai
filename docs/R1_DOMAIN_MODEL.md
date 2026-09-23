@@ -1,7 +1,7 @@
 # 据衡 R1 领域模型
 
 - 文档状态：Baselined
-- 版本：1.1
+- 版本：1.2
 - 日期：2026-09-22
 - 适用范围：R1 采购授权核心
 - 需求基线：`docs/REQUIREMENTS.md` 1.1
@@ -416,6 +416,7 @@ Domain 对象不调用 Repository，也不自行开启事务。Application Servi
 | `ProcurementRequestRepository` | Procurement/Application Port | 按所有者/标识加载并保存申请，支持版本保护和分页 |
 | `ApprovalTaskRepository` | Approval/Application Port | 按 assignee 查询任务并支持条件更新 |
 | `AuditEventStore` | Audit/Application Port | 在业务事务中只追加审计事件 |
+| `AuditTrailQueryRepository` | Audit/Application Port | 按申请创建者或任务受理人范围稳定读取只读审计轨迹，不提供更新或删除能力 |
 | `IdempotencyStore` | Application Port | 原子占用幂等键、检测请求指纹并保存结果引用 |
 | `ApprovalRoutingPolicy` | Approval Policy | 根据最小输入 `requesterId` 及服务端配置返回显式 `RoutingResult`；成功结果携带唯一非本人 `assigneeId`，失败结果携带原因；不读取 `CurrentUser` 或整个申请聚合 |
 | `BusinessNumberGenerator` | Procurement/Application Port | 生成稳定且唯一的可展示业务编号 |
@@ -439,7 +440,8 @@ Domain 对象不调用 Repository，也不自行开启事务。Application Servi
 2. `US-010` 已采用 `PR-yyyyMMdd-数据库序列值` 业务编号；序列保证唯一递增但不保证无空洞。
 3. `US-013` 已采用配置候选人的单审批人路由；零个、多个或唯一候选人为申请人本人时均显式失败。
 4. `US-012`、`US-013` 已采用显式 `status + version` 条件更新；`US-015` 对审批任务采用 `id + assignee + PENDING + version` 条件更新，并由每任务唯一决定约束共同防止双重决定。
-5. R1 是否提供 `ADMIN` 业务接口仍待决定；当前模型只保留角色。
+5. `US-016` 已采用申请创建者或任务受理人二选一的数据范围，并按事件发生时间与 ID 稳定读取；查询端口只读。
+6. R1 是否提供 `ADMIN` 业务接口仍待决定；当前模型只保留角色。
 
 ## 12. 评审检查
 

@@ -5,6 +5,7 @@ import io.github.yche18.juhengbackend.identity.domain.Role;
 import org.springframework.stereotype.Component;
 
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 在应用边界执行显式角色授权。
@@ -30,6 +31,28 @@ public class RoleAuthorizer
         {
             throw new AuthorizationDeniedException(
                     "User " + currentUser.userId() + " does not have role " + requiredRole);
+        }
+    }
+
+    /**
+     * 要求当前用户至少具有一个允许角色，否则拒绝继续执行用例。
+     *
+     * @param currentUser 当前可信用户
+     * @param allowedRoles 用例允许的非空角色集合
+     * @throws AuthorizationDeniedException 当前用户不具有任一允许角色时抛出
+     */
+    public void requireAnyRole(CurrentUser currentUser, Set<Role> allowedRoles)
+    {
+        Objects.requireNonNull(currentUser, "Current user must not be null");
+        Objects.requireNonNull(allowedRoles, "Allowed roles must not be null");
+        if (allowedRoles.isEmpty())
+        {
+            throw new IllegalArgumentException("Allowed roles must not be empty");
+        }
+        if (allowedRoles.stream().noneMatch(currentUser::hasRole))
+        {
+            throw new AuthorizationDeniedException(
+                    "User " + currentUser.userId() + " does not have any allowed role");
         }
     }
 

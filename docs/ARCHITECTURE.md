@@ -3,10 +3,10 @@
 ## 1. 文档状态
 
 - 状态：Baselined
-- 版本：1.1
+- 版本：1.2
 - 当前设计基线：R1 采购授权核心
 
-本文描述据衡的目标架构、依赖方向和安全边界，不表示所有目标组件都已经实现。当前仓库已完成截至 US-015 的 R1 核心授权闭环：服务启动、PostgreSQL/Flyway、统一错误契约、可信当前用户、采购申请的创建/本人查询/并发安全修改/幂等提交、按受理审批人范围查询任务，以及人工批准或驳回；审计轨迹查询、对象存储、RAG 和 Agent 尚未实现，仍必须由对应 User Story 按需引入。
+本文描述据衡的目标架构、依赖方向和安全边界，不表示所有目标组件都已经实现。当前仓库已完成截至 US-016 的 R1 授权与审计闭环：服务启动、PostgreSQL/Flyway、统一错误契约、可信当前用户、采购申请的创建/本人查询/并发安全修改/幂等提交、按受理审批人范围查询任务、人工批准或驳回，以及按申请创建者或任务受理人范围查看审计轨迹；对象存储、RAG 和 Agent 尚未实现，仍必须由对应 User Story 按需引入。
 
 本轮只把已经确认的 R1 需求收敛为架构基线。R2 证据智能和 R3 受约束 Agent 继续保留为目标方向，不在 R1 中提前建立领域类、数据库表、接口或基础设施。
 
@@ -133,6 +133,10 @@ io.github.yche18.juhengbackend
 │  └─ infrastructure
 ├─ identity
 ├─ audit
+│  ├─ web
+│  ├─ application
+│  └─ infrastructure
+│     └─ persistence
 └─ common
 ```
 
@@ -172,7 +176,20 @@ HTTP 请求
 
 审批人需要补证时，审批任务保持 `PENDING`，申请保持 `SUBMITTED`。同一任务最多一个 `OPEN` 补证请求；申请人只能追加与该请求关联的新材料，不能覆盖历史材料或修改核心申请字段。补证响应触发新的分析版本；若审批人放弃补证，必须先取消请求才能作出最终决定。
 
-### 6.3 材料处理（未来）
+### 6.3 查看申请审计轨迹
+
+```text
+HTTP GET + requestId
+  -> 从认证上下文取得 CurrentUser
+  -> Application 要求 REQUESTER 或 APPROVER 业务角色
+  -> Repository 使用 requestId + viewerId 校验创建者或任务受理人范围
+  -> Repository 在相同范围条件下按 occurredAt ASC, id ASC 读取审计事件
+  -> Web 仅映射 actor、action、target、timestamp、result 和请求标识等白名单字段
+```
+
+该流程只开启只读数据库事务，不改变业务状态，也不追加新的审计事件。无数据范围与申请不存在统一映射为 404；普通业务 API 不提供审计更新或删除入口。查询复用 V2 已建立的 `(procurement_request_id, occurred_at, id)` 索引，不需要新的 schema 迁移。
+
+### 6.4 材料处理（未来）
 
 ```text
 保存原文件
@@ -185,7 +202,7 @@ HTTP 请求
 
 MVP 可以使用进程内 `AFTER_COMMIT + @Async`，但必须承认进程崩溃可能丢失任务，并提供超时恢复或人工重试。异步处理只接收业务 ID，不跨线程传递受事务管理的实体。
 
-### 6.4 证据分析与建议（未来）
+### 6.5 证据分析与建议（未来）
 
 ```text
 已就绪材料 + 结构化业务数据
@@ -275,6 +292,7 @@ R1 的幂等键绑定调用者、操作、目标和请求指纹。相同载荷�
 
 - `US-003` 已采用无状态 HTTP Basic 和四个内存演示身份；正式身份供应商仍可通过 `CurrentUserProvider` 边界替换。
 - `US-013` 已采用配置驱动的单审批人路由；`JUHENG_APPROVAL_ASSIGNEE_IDS` 必须解析为唯一且非申请人本人的候选人，否则提交失败关闭。
+- `US-016` 已采用按申请的只读轨迹接口；Application 接受 `REQUESTER` 或 `APPROVER`，Repository 使用可信用户 ID 同时限制申请创建者或关联任务受理人范围，并按时间与事件 ID 稳定升序返回。
 - R1 是否需要任何 `ADMIN` 业务接口；当前只保留角色语义。
 
 这些事项应在对应 Story 进入 `READY` 前确定，但通常记录在 Story 实施计划即可，不强制单独建立 ADR。

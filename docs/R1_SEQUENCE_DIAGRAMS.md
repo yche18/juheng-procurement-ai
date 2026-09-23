@@ -1,7 +1,7 @@
 # 据衡 R1 关键流程时序图
 
 - 文档状态：Baselined
-- 版本：1.1
+- 版本：1.2
 - 日期：2026-09-22
 - 适用范围：R1 采购授权核心
 - 关联领域模型：`docs/R1_DOMAIN_MODEL.md`
@@ -325,10 +325,12 @@ HTTP query
   -> Application query service
   -> scoped Repository query（creatorId 或 assigneeId）
   -> DTO mapping
-  -> paged/stably ordered response
+  -> paged or stably ordered response
 ```
 
 这些查询没有复杂状态转换或跨聚合事务，单独绘制三个重复时序图不会增加设计信息。其关键约束是 Repository 查询本身携带数据范围，而不是先加载所有数据再由前端或 Controller 过滤。
+
+US-016 的具体范围是 `request.creator_id = currentUserId OR approval_task.assignee_id = currentUserId`。Application 先要求 `REQUESTER` 或 `APPROVER` 业务角色；Repository 再用可信用户 ID 判断范围并在审计事件查询中保留同一条件，最后按 `occurred_at ASC, id ASC` 返回。查询是只读事务，不产生新的审计事件。
 
 ## 7. R1 事务边界摘要
 
@@ -347,6 +349,7 @@ Web Controller 不开启或拼接业务事务。Domain 对象不调用 Repositor
 - `US-013` 从 `JUHENG_APPROVAL_ASSIGNEE_IDS` 读取配置候选人，只接受唯一且非申请人本人的结果。
 - `US-013` 的幂等记录使用 `IN_PROGRESS / COMPLETED`；同事务并发请求通常等待首次短事务完成后直接 replay，若读到未完成记录则返回明确处理中错误。
 - `US-012`、`US-013` 使用显式状态和版本条件更新；`US-015` 使用 `approval_task.id + assignee_id + PENDING + version` 条件更新竞争任务终态，并以 `UNIQUE (approval_task_id)` 保证每个任务至多一个决定。
+- `US-016` 复用 V2 审计索引，按申请创建者或任务受理人范围查询，并以 `occurred_at + id` 稳定升序返回只读轨迹。
 
 这些决策不能改变本文规定的可观察结果和失败不变量。
 

@@ -8,6 +8,7 @@ package io.github.yche18.juhengbackend.common.web.error;
 public enum ApiErrorCode
 {
     INVALID_REQUEST("Request is malformed"),
+    METHOD_NOT_ALLOWED("Request method is not allowed"),
     VALIDATION_FAILED("Request validation failed"),
     AUTHENTICATION_REQUIRED("Authentication is required"),
     ACCESS_DENIED("Access is denied"),

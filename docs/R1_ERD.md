@@ -1,8 +1,8 @@
 # 据衡 R1 数据库关系模型
 
 - 文档状态：Baselined
-- 版本：1.3
-- 当前物理范围：截至 US-015 人工批准或驳回
+- 版本：1.4
+- 当前物理范围：截至 US-016 查看申请审计轨迹
 - 数据库：PostgreSQL 17
 
 ## 1. 文档目的
@@ -12,7 +12,7 @@
 1. R1 关系演进总览，用来避免当前表结构阻塞后续提交和审批 Story。
 2. 截至当前 Story 的物理 ERD，只对已经进入实现的表定义完整字段、类型和约束。
 
-后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 增加提交用例必需的审批任务和幂等记录，US-014 增加任务查询索引，US-015 通过 V6 增加每任务唯一的人工审批决定。
+后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 增加提交用例必需的审批任务和幂等记录，US-014 增加任务查询索引，US-015 通过 V6 增加每任务唯一的人工审批决定，US-016 复用既有审计表与索引提供带数据范围的只读查询而不新增迁移。
 
 ## 2. R1 关系演进总览
 
@@ -30,14 +30,14 @@ erDiagram
 | --- | --- | --- |
 | `procurement_request` | US-010 | 已落库 |
 | `procurement_item` | US-010 | 已落库 |
-| `audit_event` | US-010 | 已落库；US-013 复用 |
+| `audit_event` | US-010 | 已落库；US-013/US-015 复用写入；US-016 启用授权查询 |
 | `approval_task` | US-013 | 已落库；US-014 增加查询索引；US-015 启用终态条件更新 |
 | `approval_decision` | US-015 | 已落库 |
 | `idempotency_record` | US-013 | 已落库 |
 
 R1 不建立 `user` 表。`creator_id`、`actor_id` 和 `assignee_id` 保存可信认证上下文中的稳定用户 ID，不对客户端提供的身份声明建立信任。
 
-## 3. 截至 US-015 的物理 ERD
+## 3. 截至 US-016 的物理 ERD
 
 ```mermaid
 erDiagram
@@ -125,11 +125,11 @@ erDiagram
 
 ### 3.1 已实现的查询索引
 
-下表列出截至 US-015 由 Flyway 显式创建、用于业务查询的非约束索引。主键和 `UNIQUE` 约束对应的 PostgreSQL 自动索引仍由各表约束定义，本表不重复列出。V6 的 `UNIQUE (approval_task_id)` 已为按任务读取唯一决定建立约束索引，因此不再增加重复索引。
+下表列出截至 US-016 由 Flyway 显式创建、用于业务查询的非约束索引。主键和 `UNIQUE` 约束对应的 PostgreSQL 自动索引仍由各表约束定义，本表不重复列出。V6 的 `UNIQUE (approval_task_id)` 已为按任务读取唯一决定建立约束索引，因此不再增加重复索引。
 
 | 索引 | 表与列顺序 | 用途 | 引入 Story / 迁移 |
 | --- | --- | --- | --- |
-| `idx_audit_event_request_time` | `audit_event (procurement_request_id, occurred_at, id)` | 按申请稳定读取审计时间线，为 US-016 保留已落库的查询路径 | US-010 / V2 |
+| `idx_audit_event_request_time` | `audit_event (procurement_request_id, occurred_at, id)` | US-016 按授权申请范围与时间、事件 ID 稳定升序读取审计轨迹 | US-010 / V2；US-016 启用 |
 | `idx_procurement_request_creator_created_id` | `procurement_request (creator_id, created_at DESC, id DESC)` | 当前申请人范围内的稳定分页 | US-011 / V3 |
 | `idx_procurement_request_creator_status_created_id` | `procurement_request (creator_id, status, created_at DESC, id DESC)` | 当前申请人按状态筛选并稳定分页 | US-011 / V3 |
 | `idx_approval_task_assignee_created_id` | `approval_task (assignee_id, created_at DESC, id DESC)` | 当前审批人范围内的任务稳定分页 | US-014 / V5 |
@@ -163,8 +163,9 @@ erDiagram
 - 审计事件只追加，不提供普通业务更新或删除端口。
 - `procurement_request_id` 是 R1 审计查询的数据范围根；`target_type + target_id` 表示本次动作直接作用的对象。
 - 已支持的 action 包括 `PROCUREMENT_REQUEST_CREATED`、`PROCUREMENT_REQUEST_UPDATED`；US-013 增加 `PROCUREMENT_REQUEST_SUBMITTED` 和 `APPROVAL_TASK_ASSIGNED`，US-015 增加 `APPROVAL_TASK_APPROVED` 和 `APPROVAL_TASK_REJECTED`，成功事件的 result 为 `SUCCESS`。
-- `request_identifier` 由服务端生成，不接受客户端身份或审计归属覆盖。
+- `request_identifier` 对创建/修改保存服务端请求标识，对提交/决定保存已经过长度校验并由服务端绑定调用者、操作和目标的幂等标识；它只用于关联请求，不是认证凭据，也不能覆盖操作者或审计归属。
 - 创建或修改申请时，相应申请数据和审计必须在同一个本地数据库事务中提交或回滚。提交申请时，申请状态、审批任务、两个审计事件和幂等完成结果必须整体提交或整体回滚。
+- US-016 查询先使用可信当前用户 ID 校验申请创建者或关联任务受理人范围，并在事件查询中重复携带同一范围条件；无权与不存在统一返回无内容的 404。事件按 `occurred_at ASC, id ASC` 稳定排序，普通业务接口只读且只返回白名单字段。
 
 ### 4.4 approval_task
 
@@ -228,6 +229,7 @@ erDiagram
 - US-013 使用独立的 `V4` 创建 `approval_task` 和 `idempotency_record`，不改写已经执行过的迁移。
 - US-014 使用独立的 `V5` 增加审批任务受理人分页和状态筛选索引，不新增业务表或修改任务生命周期字段。
 - US-015 使用独立的 `V6` 创建 `approval_decision`，通过任务外键、每任务唯一约束、决定类型检查和驳回原因检查保护最终决定。
+- US-016 直接使用 V2 的审计表和 `idx_audit_event_request_time`，没有 schema 变化，因此不创建空的 V7 迁移。
 - `procurement_request.status` 在 `V2` 已允许 `SUBMITTED`，`audit_event` 也可承载新的 action，因此 V4 不需要为提交动作修改这两张表。
 - V4 不提前创建 `approval_decision`；V6 也不预建材料、证据、风险或 AI 相关结构。
 
