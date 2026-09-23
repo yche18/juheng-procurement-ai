@@ -234,6 +234,75 @@ public final class ProcurementRequest
     }
 
     /**
+     * 将已提交申请转换为人工批准终态，并生成新的持久化版本。
+     *
+     * @param approvedAt 服务端批准时间
+     * @return 状态为 APPROVED 的新聚合快照
+     */
+    public ProcurementRequest markApproved(Instant approvedAt)
+    {
+        return markDecided(ProcurementRequestStatus.APPROVED, approvedAt);
+    }
+
+    /**
+     * 将已提交申请转换为人工驳回终态，并生成新的持久化版本。
+     *
+     * @param rejectedAt 服务端驳回时间
+     * @return 状态为 REJECTED 的新聚合快照
+     */
+    public ProcurementRequest markRejected(Instant rejectedAt)
+    {
+        return markDecided(ProcurementRequestStatus.REJECTED, rejectedAt);
+    }
+
+    /**
+     * 执行申请最终审批共有的状态、时间和版本转换。
+     *
+     * @param terminalStatus 批准或驳回终态
+     * @param decidedAt 服务端决定时间
+     * @return 已进入审批终态的新聚合快照
+     */
+    private ProcurementRequest markDecided(
+            ProcurementRequestStatus terminalStatus,
+            Instant decidedAt)
+    {
+        if (status != ProcurementRequestStatus.SUBMITTED)
+        {
+            throw new BusinessConflictException(
+                    "Only a submitted procurement request can be decided");
+        }
+        if (terminalStatus != ProcurementRequestStatus.APPROVED
+                && terminalStatus != ProcurementRequestStatus.REJECTED)
+        {
+            throw new IllegalArgumentException("Approval terminal status is invalid");
+        }
+        long nextVersion;
+        try
+        {
+            nextVersion = Math.addExact(version, 1L);
+        }
+        catch (ArithmeticException exception)
+        {
+            throw new ConcurrentUpdateException(
+                    "Procurement request version cannot be incremented");
+        }
+        return new ProcurementRequest(
+                id,
+                businessNumber,
+                creatorId,
+                title,
+                purpose,
+                department,
+                expectedDeliveryDate,
+                currency,
+                terminalStatus,
+                nextVersion,
+                createdAt,
+                Objects.requireNonNull(decidedAt, "Decision time must not be null"),
+                items);
+    }
+
+    /**
      * 构造采购申请并集中验证聚合级不变量。
      */
     private ProcurementRequest(

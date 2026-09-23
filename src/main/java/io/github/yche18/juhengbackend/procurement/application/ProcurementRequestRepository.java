@@ -29,6 +29,14 @@ public interface ProcurementRequestRepository
     Optional<ProcurementRequest> findOwnedById(UUID requestId, UserId creatorId);
 
     /**
+     * 按申请标识加载审批命令已经从授权任务派生出的申请聚合。
+     *
+     * @param requestId 申请标识
+     * @return 申请聚合
+     */
+    Optional<ProcurementRequest> findById(UUID requestId);
+
+    /**
      * 仅当数据库中的创建者、状态和版本仍符合预期时保存新草稿快照。
      *
      * @param request 已生成新版本的草稿聚合
@@ -45,4 +53,15 @@ public interface ProcurementRequestRepository
      * @return 主记录恰好更新一行时为 {@code true}
      */
     boolean submitConditionally(ProcurementRequest request, long expectedVersion);
+
+    /**
+     * 仅当申请仍为已提交状态且版本未变化时写入批准或驳回终态。
+     *
+     * @param request 已进入审批终态的新聚合快照
+     * @param expectedVersion 加载时的申请版本
+     * @return 条件更新恰好命中一行时为 {@code true}
+     */
+    boolean saveTerminalStateConditionally(
+            ProcurementRequest request,
+            long expectedVersion);
 }

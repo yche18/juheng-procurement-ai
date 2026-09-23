@@ -83,10 +83,17 @@ public class GlobalExceptionHandler
             String field = parameterName == null ? "parameter" : parameterName;
             for (MessageSourceResolvable resolvable : result.getResolvableErrors())
             {
-                fieldErrors.add(new ApiErrorResponse.FieldViolation(
-                        field,
-                        simpleValidationCode(resolvable.getCodes()),
-                        safeValidationMessage(resolvable.getDefaultMessage())));
+                if (resolvable instanceof FieldError fieldError)
+                {
+                    fieldErrors.add(toFieldViolation(fieldError));
+                }
+                else
+                {
+                    fieldErrors.add(new ApiErrorResponse.FieldViolation(
+                            field,
+                            simpleValidationCode(resolvable.getCodes()),
+                            safeValidationMessage(resolvable.getDefaultMessage())));
+                }
             }
         }
         fieldErrors.sort(fieldViolationComparator());

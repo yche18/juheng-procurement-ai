@@ -5,6 +5,9 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Update;
 
+import java.time.Instant;
+import java.util.UUID;
+
 /**
  * 采购申请主表的 MyBatis-Plus Mapper。
  */
@@ -61,4 +64,30 @@ public interface ProcurementRequestMapper extends BaseMapper<ProcurementRequestD
             @Param("request") ProcurementRequestDO request,
             @Param("expectedCreatorId") String expectedCreatorId,
             @Param("expectedVersion") long expectedVersion);
+
+    /**
+     * 仅在申请仍为 SUBMITTED 且加载版本未变化时写入审批终态。
+     *
+     * @param requestId 申请标识
+     * @param expectedVersion 加载时的申请版本
+     * @param status APPROVED 或 REJECTED
+     * @param nextVersion 新版本
+     * @param updatedAt 服务端决定时间
+     * @return 成功更新的行数
+     */
+    @Update("""
+            UPDATE procurement_request
+               SET status = #{status},
+                   version = #{nextVersion},
+                   updated_at = #{updatedAt}
+             WHERE id = #{requestId}
+               AND status = 'SUBMITTED'
+               AND version = #{expectedVersion}
+            """)
+    int saveTerminalStateConditionally(
+            @Param("requestId") UUID requestId,
+            @Param("expectedVersion") long expectedVersion,
+            @Param("status") String status,
+            @Param("nextVersion") long nextVersion,
+            @Param("updatedAt") Instant updatedAt);
 }

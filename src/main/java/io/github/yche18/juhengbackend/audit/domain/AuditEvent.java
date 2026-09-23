@@ -35,6 +35,8 @@ public record AuditEvent(
     private static final String UPDATED_ACTION = "PROCUREMENT_REQUEST_UPDATED";
     private static final String SUBMITTED_ACTION = "PROCUREMENT_REQUEST_SUBMITTED";
     private static final String TASK_ASSIGNED_ACTION = "APPROVAL_TASK_ASSIGNED";
+    private static final String TASK_APPROVED_ACTION = "APPROVAL_TASK_APPROVED";
+    private static final String TASK_REJECTED_ACTION = "APPROVAL_TASK_REJECTED";
     private static final String REQUEST_TARGET = "PROCUREMENT_REQUEST";
     private static final String TASK_TARGET = "APPROVAL_TASK";
     private static final String SUCCESS_RESULT = "SUCCESS";
@@ -158,6 +160,89 @@ public record AuditEvent(
                 requestId,
                 actorId,
                 TASK_ASSIGNED_ACTION,
+                TASK_TARGET,
+                taskId,
+                occurredAt,
+                SUCCESS_RESULT,
+                requestIdentifier);
+    }
+
+    /**
+     * 创建审批人明确批准任务后的成功审计事件。
+     *
+     * @param requestId 所属采购申请标识
+     * @param taskId 审批任务标识
+     * @param actorId 可信受理审批人
+     * @param occurredAt 服务端决定时间
+     * @param requestIdentifier 幂等键
+     * @return 批准成功审计事件
+     */
+    public static AuditEvent approvalTaskApproved(
+            UUID requestId,
+            UUID taskId,
+            UserId actorId,
+            Instant occurredAt,
+            String requestIdentifier)
+    {
+        return approvalTaskDecided(
+                requestId,
+                taskId,
+                actorId,
+                occurredAt,
+                requestIdentifier,
+                TASK_APPROVED_ACTION);
+    }
+
+    /**
+     * 创建审批人明确驳回任务后的成功审计事件。
+     *
+     * @param requestId 所属采购申请标识
+     * @param taskId 审批任务标识
+     * @param actorId 可信受理审批人
+     * @param occurredAt 服务端决定时间
+     * @param requestIdentifier 幂等键
+     * @return 驳回成功审计事件
+     */
+    public static AuditEvent approvalTaskRejected(
+            UUID requestId,
+            UUID taskId,
+            UserId actorId,
+            Instant occurredAt,
+            String requestIdentifier)
+    {
+        return approvalTaskDecided(
+                requestId,
+                taskId,
+                actorId,
+                occurredAt,
+                requestIdentifier,
+                TASK_REJECTED_ACTION);
+    }
+
+    /**
+     * 创建批准和驳回共用的任务终态审计事实。
+     *
+     * @param requestId 所属采购申请标识
+     * @param taskId 审批任务标识
+     * @param actorId 可信审批人
+     * @param occurredAt 服务端决定时间
+     * @param requestIdentifier 幂等键
+     * @param action 明确决定动作
+     * @return 审批决定审计事件
+     */
+    private static AuditEvent approvalTaskDecided(
+            UUID requestId,
+            UUID taskId,
+            UserId actorId,
+            Instant occurredAt,
+            String requestIdentifier,
+            String action)
+    {
+        return new AuditEvent(
+                UUID.randomUUID(),
+                requestId,
+                actorId,
+                action,
                 TASK_TARGET,
                 taskId,
                 occurredAt,
