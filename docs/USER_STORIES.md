@@ -646,7 +646,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P1 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-015` |
 | Requirements | `FR-AUD-001`、`FR-AUD-003`、`FR-AUD-005`、`FR-AUD-006`、`FR-IAM-003`、`NFR-SEC-002` |
 
@@ -692,6 +692,10 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 
 - 数据范围和敏感字段过滤。
 - 事件顺序稳定，普通业务接口不能修改审计事实。
+
+### 完成记录
+
+Java 17 下执行 `mvnw.cmd clean test`，96 个测试全部通过。申请创建者或关联审批任务受理人可通过只读接口查看审计轨迹；Repository SQL 直接携带可信用户范围，事件按 `occurred_at ASC, id ASC` 稳定排序并仅返回 actor、action、target、timestamp、result、请求标识等白名单字段。越权与不存在统一返回 404，普通业务用户没有审计修改或删除接口；US-016 复用 V2 既有审计索引，不新增数据库迁移。
 
 ## 13. R1 Story 顺序
 

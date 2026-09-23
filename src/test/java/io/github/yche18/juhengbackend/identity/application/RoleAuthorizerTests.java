@@ -46,4 +46,40 @@ class RoleAuthorizerTests
                 .isInstanceOf(AuthorizationDeniedException.class);
     }
 
+    /**
+     * 验证具有任一允许角色时，多角色授权允许用例继续执行。
+     */
+    @Test
+    void permitsUserWithAnyAllowedRole()
+    {
+        CurrentUser requester = new CurrentUser(
+                new UserId("requester-1"),
+                Set.of(Role.REQUESTER));
+        CurrentUser approver = new CurrentUser(
+                new UserId("approver-1"),
+                Set.of(Role.APPROVER));
+        Set<Role> allowedRoles = Set.of(Role.REQUESTER, Role.APPROVER);
+
+        assertThatCode(() -> roleAuthorizer.requireAnyRole(requester, allowedRoles))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> roleAuthorizer.requireAnyRole(approver, allowedRoles))
+                .doesNotThrowAnyException();
+    }
+
+    /**
+     * 验证不具有任一允许角色时，多角色授权返回统一授权异常。
+     */
+    @Test
+    void deniesUserWithoutAnyAllowedRole()
+    {
+        CurrentUser administrator = new CurrentUser(
+                new UserId("administrator-1"),
+                Set.of(Role.ADMIN));
+
+        assertThatThrownBy(() -> roleAuthorizer.requireAnyRole(
+                administrator,
+                Set.of(Role.REQUESTER, Role.APPROVER)))
+                .isInstanceOf(AuthorizationDeniedException.class);
+    }
+
 }

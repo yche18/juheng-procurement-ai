@@ -1,6 +1,6 @@
 # 据衡后端
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改、幂等提交、审批人待办查询和并发安全的人工批准/驳回。
+据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改、幂等提交、审批人待办查询、并发安全的人工批准/驳回和授权审计轨迹查询。
 
 ## 本地要求
 
@@ -275,6 +275,48 @@ curl -u demo-approver:juheng-local \
 
 任务只按认证上下文中的受理人加载，申请人即使同时拥有 `APPROVER` 角色也不能审批自己的申请。相同调用者以相同键和载荷重试会返回第一次决定；同键改变决定、版本或意见返回 `409 IDEMPOTENCY_CONFLICT`；不同键并发批准和驳回时最多一个成功，失败方得到明确的业务或并发冲突。LLM 和 Agent 均没有调用这些命令的入口。
 
+## 查看申请审计轨迹
+
+申请创建者和该申请审批任务的受理人可以调用只读接口查看关键业务轨迹：
+
+```shell
+curl -u demo-requester:juheng-local \
+  http://localhost:8080/api/procurement-requests/替换为申请UUID/audit-events
+```
+
+也可以由受理审批人使用相同路径查询：
+
+```shell
+curl -u demo-approver:juheng-local \
+  http://localhost:8080/api/procurement-requests/替换为申请UUID/audit-events
+```
+
+响应按 `timestamp ASC, id ASC` 稳定排序，包含申请创建、修改、提交、任务分配和最终批准/驳回等已经发生的事件：
+
+```json
+{
+  "procurementRequestId": "替换为申请UUID",
+  "events": [
+    {
+      "id": "事件UUID",
+      "actorId": "demo-requester",
+      "action": "PROCUREMENT_REQUEST_CREATED",
+      "targetType": "PROCUREMENT_REQUEST",
+      "targetId": "替换为申请UUID",
+      "timestamp": "2026-09-23T01:00:00Z",
+      "result": "SUCCESS",
+      "requestIdentifier": "服务端请求或幂等标识"
+    }
+  ]
+}
+```
+
+Repository 查询同时携带可信当前用户 ID：只有 `creator_id` 或关联审批任务的 `assignee_id` 命中时才读取事件。其他业务用户与不存在的申请统一返回 `404 RESOURCE_NOT_FOUND`；`ADMIN` 不自动获得业务审计读取权限。响应只映射上述白名单字段，不包含认证凭据、内部异常或堆栈。
+
+`requestIdentifier` 用于关联创建/修改请求或已经绑定调用者、操作和目标的幂等请求；它不是认证凭据，也不会赋予任何额外权限。客户端不应把密码、访问令牌或其他秘密放入 `Idempotency-Key`。
+
+该路径只开放 `GET`。`POST`、`PUT` 和 `DELETE` 返回 `405 METHOD_NOT_ALLOWED`，普通业务 API 不提供修改或删除审计事实的能力。US-016 直接复用 V2 已建立的 `(procurement_request_id, occurred_at, id)` 索引，因此没有新增 Flyway 迁移。
+
 ## API 错误响应
 
 API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
@@ -301,6 +343,7 @@ API 使用稳定错误代码区分请求格式、字段校验、认证、授权�
 | `401` | `AUTHENTICATION_REQUIRED` | 请求缺少有效认证身份 |
 | `403` | `ACCESS_DENIED` | 当前身份没有操作权限 |
 | `404` | `RESOURCE_NOT_FOUND` | 当前数据范围内不存在目标资源 |
+| `405` | `METHOD_NOT_ALLOWED` | 目标资源不支持该 HTTP 方法 |
 | `409` | `APPROVAL_ROUTING_FAILED` | 无法解析唯一且非申请人本人的审批人 |
 | `409` | `IDEMPOTENCY_CONFLICT` | 同一幂等键已经绑定到不同载荷 |
 | `409` | `IDEMPOTENCY_IN_PROGRESS` | 相同幂等请求尚未产生可重放结果 |
@@ -326,4 +369,4 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V5、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请和审批任务集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者/受理人范围、分页、详情查询、版本条件更新、审批路由、幂等重放和并发冲突。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V6、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请、审批任务和审计轨迹集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者/受理人范围、分页、详情查询、稳定审计排序、只读边界、版本条件更新、审批路由、幂等重放和并发冲突。
