@@ -74,11 +74,12 @@ MVP 采用最小角色模型：
 
 ## 6. 当前约束
 
-- 当前仓库是 Spring Boot 后端项目，目标运行时使用 Java 17。
-- 当前阶段只完善需求和设计文档，不实现数据库、业务类、前端、RAG 或 Agent。
+- 当前仓库已经完成 R1 Spring Boot 后端，目标运行时使用 Java 17；当前阶段为 R1 React 前端与前后端集成。
+- R1 前端只交付可复现、可演示的采购授权闭环，不建设完整企业管理后台，也不改变服务端作为业务事实、权限和状态判断最终来源的边界。
+- R1 前端使用 React、TypeScript、Vite、React Router、Ant Design、Axios、Redux Toolkit 和 RTK Query；依赖只在当前任务实际需要时加入。
 - 文档处理第一版面向可直接提取文本的 PDF 和 DOCX；采购制度可在对应 Story 中确认是否增加 Markdown。
 - 第一版不实现 OCR、印章识别、扫描件解析和复杂表格视觉理解。
-- PostgreSQL、对象存储、向量检索和模型服务只在对应 Story 到来时按需引入。
+- 对象存储、向量检索和模型服务只在对应 R2/R3 Story 到来时按需引入。
 - 业务数据库是事实源；模型输出、聊天记录和 Agent Memory 都不是业务事实源。
 
 ## 7. 成功标准

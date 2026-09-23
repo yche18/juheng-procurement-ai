@@ -226,7 +226,42 @@ Agent 轨迹测试关注允许的 Tool、参数边界、调用顺序、最终结
 
 在线评测通过不代表模型获得业务授权；权限边界仍由确定性测试保证。
 
-## 11. CI 门禁
+## 11. R1 前端测试
+
+### 11.1 静态与单元验证
+
+- TypeScript 使用严格类型检查，构建前执行 `typecheck`。
+- ESLint 检查 React Hooks、未处理 Promise 和明显不安全模式。
+- Redux Slice、Selector、错误映射、幂等键生命周期和金额/日期展示辅助函数使用快速单元测试。
+- 测试必须断言密码不会进入 Redux State、Redux DevTools 可观察 Action、`localStorage` 或 `sessionStorage`。
+
+### 11.2 组件与 API 状态测试
+
+使用 Vitest、React Testing Library 和 MSW 验证用户可见行为：
+
+- Loading、Empty、Success、字段校验和通用失败状态。
+- `AUTHENTICATION_REQUIRED` 清理内存凭据和 Session，`ACCESS_DENIED` 只显示无权状态而不伪装退出。
+- `VALIDATION_FAILED` 映射到对应表单字段；未知字段错误仍有页面级兜底。
+- `BUSINESS_CONFLICT`、`CONCURRENT_MODIFICATION` 和幂等错误不会被网络层吞掉。
+- 写操作不自动重试；同一业务意图的人工重试复用原幂等键。
+- RTK Query Tag 失效后重新取得服务端权威状态，不把旧 Cache 当作最终结果。
+- 页面卸载时查询可以通过 `AbortSignal` 取消，取消不显示为业务失败。
+
+组件测试不依赖真实后端、PostgreSQL、公网或生产身份。MSW Handler 使用 `docs/API_CONTRACT.md` 中的实际字段和错误结构，不能为了让页面测试通过而发明后端字段。
+
+### 11.3 浏览器端到端验收
+
+Playwright 只在 `FE-017` 引入，使用真实 Spring Boot、PostgreSQL、浏览器和合成演示身份验证：
+
+1. 申请人创建、查看、修改和提交申请。
+2. 审批人查看任务并批准；另一用例执行驳回并保存原因。
+3. 页面刷新后授权用户仍能读取最终决定，前提是 `US-017` 已交付。
+4. 越权、非法状态、陈旧版本、重复请求和审计时间线保持后端不变量。
+5. 前端 Loading、Empty、错误和冲突提示可见且不会泄漏内部异常。
+
+E2E 不以按钮隐藏证明安全；关键拒绝仍由后端集成测试保证。浏览器测试只覆盖少量高价值流程，不替代 Domain、Application、Persistence 或 API 测试。
+
+## 12. CI 门禁
 
 随着能力逐步引入，CI 至少执行：
 
@@ -234,11 +269,12 @@ Agent 轨迹测试关注允许的 Tool、参数边界、调用顺序、最终结
 2. Domain 与 Application 单元测试。
 3. Web/API 测试。
 4. PostgreSQL/Flyway 集成测试。
-5. 固定 Fixture 的文档、RAG 和 Agent 离线回归。
+5. 前端 lint、typecheck、单元/组件测试和生产构建。
+6. 固定 Fixture 的文档、RAG 和 Agent 离线回归。
 
 真实模型评测、长时间性能测试和隐藏集评测可以独立运行，但发布候选版本必须查看其结果。任何失败测试不得仅通过放宽断言或删除边界用例来恢复绿色。
 
-## 12. Story 的测试完成标准
+## 13. Story 的测试完成标准
 
 每个 Story 完成报告必须列出：
 

@@ -3,12 +3,12 @@
 ## 1. 文档状态
 
 - 状态：Baselined
-- 版本：1.2
-- 当前设计基线：R1 采购授权核心
+- 版本：1.3
+- 当前设计基线：R1 采购授权核心与 React 演示客户端
 
-本文描述据衡的目标架构、依赖方向和安全边界，不表示所有目标组件都已经实现。当前仓库已完成截至 US-016 的 R1 授权与审计闭环：服务启动、PostgreSQL/Flyway、统一错误契约、可信当前用户、采购申请的创建/本人查询/并发安全修改/幂等提交、按受理审批人范围查询任务、人工批准或驳回，以及按申请创建者或任务受理人范围查看审计轨迹；对象存储、RAG 和 Agent 尚未实现，仍必须由对应 User Story 按需引入。
+本文描述据衡的目标架构、依赖方向和安全边界，不表示所有目标组件都已经实现。当前仓库已完成截至 US-016 的 R1 后端授权与审计闭环；当前阶段在不改变服务端权限和业务事实边界的前提下交付 React 演示客户端。对象存储、RAG 和 Agent 尚未实现，仍必须由对应 User Story 按需引入。
 
-本轮只把已经确认的 R1 需求收敛为架构基线。R2 证据智能和 R3 受约束 Agent 继续保留为目标方向，不在 R1 中提前建立领域类、数据库表、接口或基础设施。
+R1 前端复用既有 User Story，不复制另一套业务状态机；页面、Redux State 和 RTK Query Cache 都不是采购事实源。R2 证据智能和 R3 受约束 Agent 继续保留为目标方向，不在 R1 前端任务中提前建立领域类、数据库表、接口、页面或空模块。
 
 ## 2. 架构目标
 
@@ -18,18 +18,22 @@
 - 风险、建议和引用能够追溯到原始证据。
 - LLM、向量库、对象存储等外部能力可替换且失败时不会破坏核心业务状态。
 - 每个 Story 可以在较小范围内完成 Controller、Application、Domain、Persistence 和测试。
+- React 客户端通过已评审 REST Contract 展示用户结果，不能重算权威金额、绕过授权或直接修改业务状态。
 - 只有评测或真实运行问题证明有必要时，才增加分布式基础设施。
 
 ## 3. 系统边界
 
 ```text
-申请人 / 审批人 / 管理员
-          |
-          v
-      REST API
-          |
-          v
-  据衡模块化单体
+申请人 / 审批人
+        |
+        v
+React / TypeScript SPA
+        |
+        v
+    REST API
+        |
+        v
+据衡模块化单体
   ├─ 采购申请与授权
   ├─ 材料与证据
   ├─ 风险与建议
@@ -41,7 +45,7 @@
           +----> 模型/Embedding 服务（未来：不可信外部计算）
 ```
 
-前端、ERP、财务、支付、电子签章和供应商外部系统均不在当前实现范围。未来接入时必须通过明确的适配器和新的 Story/ADR，不能让外部系统直接修改领域状态。
+当前只实现 R1 演示型 SPA；完整企业前端、移动端、生产身份平台、ERP、财务、支付、电子签章和供应商外部系统不在当前范围。未来外部系统接入必须通过明确适配器和新的 Story/ADR，不能直接修改领域状态。
 
 ## 4. 代码依赖方向
 
@@ -80,6 +84,33 @@ Infrastructure Adapters
 | Infrastructure | Repository/端口实现、MyBatis-Plus Mapper、PostgreSQL、时钟和认证适配 | 不绕过 Application 直接改变业务状态，不向 Domain 泄漏 Persistence DO、Mapper 或框架类型 |
 
 R1 允许 Application Service 在一个本地数据库事务中协调多个聚合，因为提交和审批天然需要同时更新申请、任务、决定、幂等记录和审计。该选择不等于允许领域对象相互任意修改；聚合之间只通过标识关联，由应用用例显式协调。
+
+### 4.2 R1 前端依赖方向
+
+```text
+Page / Feature Component
+        |
+        v
+Feature API (RTK Query endpoint)
+        |
+        v
+Shared axiosBaseQuery
+        |
+        v
+Axios API Client
+        |
+        v
+Spring Boot REST API
+```
+
+- `app/` 只负责 Store、Router、Provider 和应用级组合，不保存业务组件。
+- `features/` 按 `identity`、`procurement`、`approval`、`audit` 等业务能力组织；Feature 可以依赖 `shared`，不能通过其他 Feature 的页面或内部 Slice 形成隐式耦合。
+- `shared/api` 负责 Axios 实例、统一错误、RTK Query Base API 和凭据内存边界，不包含采购或审批规则。
+- RTK Query 管理服务端响应副本、请求状态和缓存失效；普通 Redux Slice 只保存确实跨路由的客户端状态，不复制 API 实体。
+- Ant Design Form 管理未提交表单；分页和筛选优先保存在 URL；密码等凭据不进入 Redux 或持久化存储。
+- R2/R3 Feature 只在对应 Story 启动时创建，目标目录结构不等于预建空代码。
+
+详细规则见 `docs/FRONTEND_ARCHITECTURE.md`。
 
 ## 5. 业务模块
 
@@ -145,6 +176,8 @@ Controller、DTO、Application Service、Mapper 和 Persistence DO 仍然存在�
 Web/Security Adapter 通过可信认证适配器解析 `CurrentUser`，并将其作为不可由请求体覆盖的上下文传给 Application。Application 在应用边界完成角色和数据范围授权，再把领域行为真正需要的 `UserId` 或其他业务值显式传入 Domain。Domain 不主动读取 `CurrentUser`，也不注入 `CurrentUserProvider`。
 
 ## 6. 核心请求流程
+
+R1 浏览器请求统一经过 Axios Client 和 RTK Query Feature API。页面只提交 API Contract 允许的字段；服务端响应成功后通过 Tag 失效或显式重新查询恢复权威状态。客户端隐藏按钮、路由保护和本地校验不改变下列后端事务与授权流程。
 
 ### 6.1 创建或修改草稿
 
@@ -280,9 +313,10 @@ R1 的幂等键绑定调用者、操作、目标和请求指纹。相同载荷�
 4. `US-003`：最小认证与可信 `CurrentUser`。
 5. `US-010`～`US-012`：采购申请草稿、查询和修改闭环。
 6. `US-013`～`US-016`：提交、人工审批和审计闭环。
-7. R2：材料上传、生命周期、解析、制度检索、证据分析和结构化建议。
-8. R3：只读 Tool 的受约束 Agent 和审批草稿。
-9. 根据评测决定是否增加 Elasticsearch、RRF、Rerank、SSE 或更可靠的任务基础设施。
+7. `DOC-004`、`FE-000`、`FE-010`～`FE-017`：R1 React 前端、现有 API 集成和端到端 Demo Baseline；必要时先以 `US-017` 补齐最终审批结果读取契约。
+8. R2：每个 Story 同一垂直切片交付材料上传、生命周期、解析、制度检索、证据分析、结构化建议及对应页面。
+9. R3：只读 Tool 的受约束 Agent、审批草稿和可观察运行页面。
+10. 根据评测决定是否增加 Elasticsearch、RRF、Rerank、SSE 或更可靠的任务基础设施。
 
 可验收需求见 `docs/REQUIREMENTS.md`，详细 Story 和依赖关系见 `docs/BACKLOG.md`。R1 的聚合、关系和关键运行流程分别见 `docs/R1_DOMAIN_MODEL.md` 与 `docs/R1_SEQUENCE_DIAGRAMS.md`。任何外部参考实现都必须服从当前产品范围和评测结果。
 
@@ -293,6 +327,8 @@ R1 的幂等键绑定调用者、操作、目标和请求指纹。相同载荷�
 - `US-003` 已采用无状态 HTTP Basic 和四个内存演示身份；正式身份供应商仍可通过 `CurrentUserProvider` 边界替换。
 - `US-013` 已采用配置驱动的单审批人路由；`JUHENG_APPROVAL_ASSIGNEE_IDS` 必须解析为唯一且非申请人本人的候选人，否则提交失败关闭。
 - `US-016` 已采用按申请的只读轨迹接口；Application 接受 `REQUESTER` 或 `APPROVER`，Repository 使用可信用户 ID 同时限制申请创建者或关联任务受理人范围，并按时间与事件 ID 稳定升序返回。
+- R1 前端采用 React、TypeScript、Vite、React Router、Ant Design、Axios、Redux Toolkit 和 RTK Query；HTTP Basic 凭据仅保存在内存，服务端数据由 RTK Query 管理，写请求不自动重试。
+- `US-017` 在实现前评审独立只读审批结果 Contract；当前申请和任务详情 API 不包含可在刷新后恢复的最终决定意见，前端不得从审计文本或页面缓存猜测。
 - R1 是否需要任何 `ADMIN` 业务接口；当前只保留角色语义。
 
 这些事项应在对应 Story 进入 `READY` 前确定，但通常记录在 Story 实施计划即可，不强制单独建立 ADR。
@@ -316,5 +352,8 @@ R1 设计基线由以下文档共同组成：
 - `docs/R1_SEQUENCE_DIAGRAMS.md`：创建/修改、提交、批准/驳回三个关键运行流程。
 - `docs/R1_ERD.md`：R1 关系演进总览，以及当前 Story 已落库部分的物理字段和约束。
 - `docs/USER_STORIES.md`：可以被测试验证的行为边界。
+- `docs/R1_FRONTEND_UX.md`：R1 页面、角色导航、交互和可见状态。
+- `docs/API_CONTRACT.md`：前端可依赖的已实现 REST Contract 与明确的待补缺口。
+- `docs/FRONTEND_ARCHITECTURE.md`：前端依赖、状态所有权、模块组织和安全边界。
 
-该基线不包含 Persistence DO、Mapper、数据库 ERD、Flyway SQL、REST 路径、DTO 或具体锁实现。这些内容只在对应 User Story 启动时设计，且必须服从本基线；若实现发现基线无法满足验收条件，应先修正文档，并在架构影响显著时新增 ADR，而不是在代码中静默改变设计。
+R1 领域设计在各 Story 启动前不预先规定 Persistence DO、Mapper、Flyway SQL、REST 路径、DTO 或具体锁实现；这些实现现在由代码和 `API_CONTRACT.md` 如实记录。后续 Contract 变化仍必须由明确 Story 驱动并同步文档；若实现发现基线无法满足验收条件，应先修正文档，并在架构影响显著时新增 ADR，而不是在代码中静默改变设计。
