@@ -1,10 +1,10 @@
 # 据衡 R1 User Stories
 
 - 文档状态：Baselined
-- 版本：1.0
-- 日期：2026-09-21
-- 对应需求基线：`docs/REQUIREMENTS.md` 1.1
-- 当前范围：R1 采购授权核心
+- 版本：1.1
+- 日期：2026-09-23
+- 对应需求基线：`docs/REQUIREMENTS.md` 1.2
+- 当前范围：R1 采购授权核心、最终结果查询与前端集成
 
 ## 1. 文档目的
 
@@ -16,7 +16,7 @@
 - `docs/USER_STORIES.md` 定义近期 Story 的详细行为与验收边界。
 - `docs/REQUIREMENTS.md` 仍是产品需求基线；Story 不能静默改变 Requirement。
 
-R2 证据智能和 R3 受约束 Agent 本轮不展开。完成 R1 Story 评审后，先建立 R1 领域模型，再进入实现。
+R1 后端 `US-003`～`US-016` 已完成。当前通过既有 Story 的 Frontend Task 交付 React 用户界面，并用 `US-017` 补齐页面刷新后读取最终审批结果的契约；R2 证据智能和 R3 受约束 Agent 本轮不展开。
 
 ## 2. R1 用户旅程
 
@@ -76,7 +76,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-002` |
 | Requirements | `FR-IAM-001`、`FR-IAM-002`、`FR-IAM-005`、`NFR-SEC-001`、`NFR-TST-002` |
 
@@ -152,7 +152,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-001`、`US-002`、`US-003` |
 | Requirements | `FR-PR-001`～`FR-PR-005`、`FR-PR-010`、`FR-IAM-001`、`FR-AUD-001`、`FR-AUD-003`、`BR-001`、`BR-002` |
 
@@ -221,7 +221,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-010` |
 | Requirements | `FR-PR-006`、`FR-IAM-003`、`FR-IAM-005`、`NFR-SEC-002`、`NFR-PERF-001` |
 
@@ -285,7 +285,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-011` |
 | Requirements | `FR-PR-003`～`FR-PR-005`、`FR-PR-007`、`FR-PR-011`、`FR-IAM-003`、`FR-AUD-001`、`BR-004`、`NFR-COR-003` |
 
@@ -352,7 +352,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-012`、审批路由前置决策 |
 | Requirements | `FR-PR-008`、`FR-PR-009`、`FR-APP-001`、`FR-APP-002`、`FR-AUD-001`、`FR-AUD-003`、`BR-003`、`BR-006`、`BR-008`、`NFR-COR-001`、`NFR-COR-003` |
 
@@ -466,7 +466,7 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 | --- | --- |
 | Release | R1 |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | DONE |
 | Dependencies | `US-013` |
 | Requirements | `FR-APP-003`、`FR-IAM-003`、`FR-IAM-005`、`NFR-SEC-002`、`NFR-PERF-001` |
 
@@ -697,7 +697,72 @@ R1 不接入文档解析、RAG、LLM 或 Agent。它必须在所有 AI 依赖不
 
 Java 17 下执行 `mvnw.cmd clean test`，96 个测试全部通过。申请创建者或关联审批任务受理人可通过只读接口查看审计轨迹；Repository SQL 直接携带可信用户范围，事件按 `occurred_at ASC, id ASC` 稳定排序并仅返回 actor、action、target、timestamp、result、请求标识等白名单字段。越权与不存在统一返回 404，普通业务用户没有审计修改或删除接口；US-016 复用 V2 既有审计索引，不新增数据库迁移。
 
-## 13. R1 Story 顺序
+## 13. US-017 查看最终审批结果
+
+### Story
+
+作为申请创建者或任务受理审批人，我希望在决定完成后重新查看已保存的最终审批结果，以便在页面刷新或重新进入系统后仍能理解谁在何时作出了什么决定以及对应意见。
+
+### 元数据
+
+| 字段 | 内容 |
+| --- | --- |
+| Release | R1 Frontend Integration |
+| Priority | P0 |
+| Status | PLANNED |
+| Dependencies | `US-015` |
+| Requirements | `FR-APP-015`、`FR-IAM-003`、`FR-IAM-005`、`NFR-SEC-002` |
+
+### 验收条件
+
+#### AC-017-01 申请创建者查看结果
+
+- Given 目标申请已经 `APPROVED` 或 `REJECTED`
+- And 当前用户是申请创建者
+- When 用户读取最终审批结果
+- Then 返回决定类型、决定 ID、审批任务 ID、可信操作者、服务端决定时间和意见
+- And 驳回结果包含已保存的非空原因
+
+#### AC-017-02 任务受理审批人查看结果
+
+- Given 当前用户是该申请审批任务的受理人
+- And 最终决定已经保存
+- When 用户重新读取最终审批结果
+- Then 返回与数据库唯一决定一致的只读结果
+
+#### AC-017-03 尚无最终决定
+
+- Given 申请和任务仍在等待决定
+- When 授权用户查询最终审批结果
+- Then 返回稳定的“结果尚不存在”语义
+- And 不伪造空决定、默认批准或默认驳回
+
+#### AC-017-04 越权与不存在
+
+- Given 当前用户既不是申请创建者，也不是任务受理审批人，或目标申请不存在
+- When 查询最终审批结果
+- Then 不返回申请、任务、决定或意见内容
+- And 响应不能帮助调用者枚举无权资源
+
+#### AC-017-05 只读边界
+
+- Given 最终决定已经保存
+- When 普通业务用户调用公开 API
+- Then 不存在修改、覆盖或删除该决定的能力
+
+### 非范围
+
+- 修改、撤销或重新打开最终决定。
+- R2 Analysis Run、风险项和建议版本快照。
+- 全局审批决定搜索和导出。
+
+### 测试重点
+
+- Repository 查询自带申请创建者或任务受理人范围。
+- 只返回决定白名单字段，不暴露幂等载荷、内部异常或认证信息。
+- 页面刷新前后的结果一致，读取行为不产生新的业务状态变化。
+
+## 14. R1 Story 顺序
 
 ```text
 US-000 服务启动与健康检查（Enabler）
@@ -711,11 +776,12 @@ US-000 服务启动与健康检查（Enabler）
   -> US-014 查看待审批任务
   -> US-015 人工批准或驳回
   -> US-016 查看申请审计轨迹
+  -> US-017 查看最终审批结果（Frontend Integration Gap）
 ```
 
 该顺序用于控制学习和交付范围，不要求把所有 Story 一次性设计成代码。
 
-## 14. Requirement 追溯摘要
+## 15. Requirement 追溯摘要
 
 | Story | 核心 Requirement 组 | 主要风险 |
 | --- | --- | --- |
@@ -727,10 +793,11 @@ US-000 服务启动与健康检查（Enabler）
 | `US-014` | `FR-APP-003` | 待办越界、任务枚举 |
 | `US-015` | `FR-APP-004`～`007`、`FR-IAM-004` | 自审、双重决定、幂等冲突 |
 | `US-016` | `FR-AUD-001`、`003`、`005`、`006` | 审计泄漏、审计篡改 |
+| `US-017` | `FR-APP-015`、`FR-IAM-003`、`FR-IAM-005` | 最终意见泄漏、决定枚举、读取结果漂移 |
 
 横跨所有 Story 的安全、正确性和测试要求仍以 Requirements 中的 `NFR-*` 与 `docs/TEST_STRATEGY.md` 为准。
 
-## 15. Definition of Ready
+## 16. Definition of Ready
 
 一个 Story 开始实现前必须满足：
 
@@ -742,24 +809,28 @@ US-000 服务启动与健康检查（Enabler）
 6. 非范围明确，不夹带后续 Story。
 7. 文件级实施计划得到确认。
 
-## 16. Definition of Done
+## 17. Definition of Done
 
 一个 Story 完成必须满足：
 
 1. 所有验收条件通过。
 2. 相关 Domain、Application、Web 和 Persistence 测试按风险覆盖。
+   Frontend Task 则覆盖类型检查、组件/API 状态测试和适用的浏览器验收。
 3. 权限拒绝和失败路径不会留下部分状态。
 4. 相关 Flyway 迁移可从空库执行。
 5. 实际测试命令和结果写入完成报告。
 6. Backlog、需求追溯和必要文档同步更新。
 7. 项目所有者能够解释请求链路、事务边界和主要失败路径。
 
-## 17. Story 启动前决策
+## 18. Story 启动前决策
 
-已确认 `US-016` 保留在 R1，作为 P1 的完整 Demo 能力；`US-003`～`US-015` 构成 R1 核心业务闭环，加入 `US-016` 后形成可展示的审计闭环。
+已确认 `US-016` 保留在 R1，作为 P1 的完整 Demo 能力；`US-003`～`US-016` 后端均已完成。R1 前端复用这些业务 Story，并以 `US-017` 补齐刷新后读取最终决定的用户结果。
 
-以下事项必须在对应 Story 进入 `READY` 前确认，不阻塞本 User Story Baseline：
+已确认：
 
-1. `US-003` 采用哪种最小认证方式。
-2. `US-013` 采用哪种单审批人路由方式。
-3. R1 是否需要为 `ADMIN` 提供任何业务接口；当前 Story 仅保留角色，不设计管理功能。
+1. `US-003` 使用无状态 HTTP Basic 和固定演示身份；R1 前端凭据仅保存在内存。
+2. `US-013` 使用配置驱动的唯一非自审批人路由。
+3. R1 不为 `ADMIN` 提供业务页面或业务数据超级权限。
+4. R1 前端使用 React、TypeScript、Vite、React Router、Ant Design、Axios、Redux Toolkit 和 RTK Query。
+
+`US-017` 启动前仍需确认独立最终决定读取端点的最终路径，以及尚无决定时的 HTTP 语义；确认前前端不得模拟该接口已经存在。

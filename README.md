@@ -1,6 +1,14 @@
-# 据衡后端
+# 据衡采购授权与证据决策平台
 
-据衡是一个企业采购证据决策与授权平台。本仓库当前按 User Story 逐步交付；目前已建立服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份，以及采购申请草稿的创建、本人范围查询、并发安全修改、幂等提交、审批人待办查询、并发安全的人工批准/驳回和授权审计轨迹查询。
+据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回和授权审计轨迹。当前阶段先建立 React 前端和端到端 Demo Baseline，再以垂直切片进入 R2 证据智能。
+
+前端尚未初始化。R1 前端设计基线见：
+
+- [`docs/R1_FRONTEND_UX.md`](docs/R1_FRONTEND_UX.md)
+- [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)
+- [`docs/FRONTEND_ARCHITECTURE.md`](docs/FRONTEND_ARCHITECTURE.md)
+
+现有后端启动和测试方式保持如下。
 
 ## 本地要求
 
