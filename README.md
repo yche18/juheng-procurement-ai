@@ -1,20 +1,21 @@
 # 据衡采购授权与证据决策平台
 
-据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回和授权审计轨迹。当前阶段先建立 React 前端和端到端 Demo Baseline，再以垂直切片进入 R2 证据智能。
+据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端核心已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回和授权审计轨迹。R1 Release 尚未完成，当前正在交付 React 前端、剩余只读 Contract 和真实端到端 Demo Baseline；这些全部验收后才进入 R2 证据智能。
 
-前端尚未初始化。R1 前端设计基线见：
+R1 前端的 `FE-000` 基础骨架与演示登录已实现并等待评审，当前具备受保护路由、应用外壳、内存凭据、统一 API 错误、Redux Toolkit/RTK Query、Docker 开发环境和组件测试基础。采购与审批业务页面仍按后续 Frontend Task 逐项交付。设计基线见：
 
 - [`docs/R1_FRONTEND_UX.md`](docs/R1_FRONTEND_UX.md)
 - [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)
 - [`docs/FRONTEND_ARCHITECTURE.md`](docs/FRONTEND_ARCHITECTURE.md)
 
-现有后端启动和测试方式保持如下。
+前后端在同一仓库中独立构建和运行。
 
 ## 本地要求
 
 - JDK 17
 - Docker Desktop（或兼容的 Docker Engine 与 Compose）
-- 可访问 Maven Central，首次运行 Maven Wrapper 时需要下载 Maven 和项目依赖
+- 可选：Node.js 24.15.x 与 npm 11.6.x；只有脱离 Docker 运行前端时才需要
+- 可访问 Maven Central 和 npm registry，首次运行时需要下载依赖
 
 先确认终端实际使用的是 Java 17：
 
@@ -79,9 +80,62 @@ curl http://localhost:8080/actuator/health
 
 `groups` 表示 Spring Boot 内置的存活与就绪检查分组。健康端点只返回分组名称和汇总状态，不公开组件详情、配置或凭据。
 
+## 启动前端
+
+前端位于 `frontend/`。推荐使用 Docker Compose 启动开发服务器，本机不需要安装 Node.js 或 npm。容器固定使用 Node.js 24.15.0 和 npm 11.6.2，将源码挂载到容器并把依赖保存在独立 Docker volume 中；浏览器仍可使用 source map、Console、Network 和断点调试，源码修改会触发 Vite HMR。
+
+先确保 PostgreSQL 和 Spring Boot 已按前述步骤启动，再在仓库根目录执行：
+
+```powershell
+docker compose up --build frontend
+```
+
+Vite 默认监听 `http://localhost:5173`。容器中的 `/api` 请求默认代理到宿主机的 `http://localhost:8080`；Windows、macOS 和 Linux 均使用 Compose 提供的 `host.docker.internal` 地址。首次启动会下载并安装依赖，后续启动复用 npm cache。
+
+若 Spring Boot 使用其他地址，在启动 Compose 前覆盖代理目标。例如 Windows PowerShell：
+
+```powershell
+$env:JUHENG_FRONTEND_PROXY_TARGET = "http://host.docker.internal:9090"
+docker compose up --build frontend
+```
+
+停止前端容器不会删除源码、PostgreSQL 数据或前端依赖 volume：
+
+```powershell
+docker compose stop frontend
+```
+
+需要脱离 Docker 排查前端工具链时，才使用本机 Node/npm。版本必须与 `frontend/.nvmrc` 和 `package.json` 一致：
+
+```shell
+cd frontend
+node --version # 必须是 v24.15.x
+npm --version  # 必须是 11.6.x
+npm ci
+cp .env.example .env.local
+npm run dev
+```
+
+默认配置可直接用于本地开发。若 Spring Boot 使用其他地址，只修改 `.env.local` 中的 `JUHENG_FRONTEND_PROXY_TARGET`；该本地文件不会提交。任何密码都不得写入 `.env`、Redux 或浏览器持久化存储。
+
+如果原生运行时的 Windows 终端显示 Node.js 20.x，先切换到项目 `.nvmrc` 指定的版本。已安装 nvm-windows 时可执行：
+
+```powershell
+nvm install 24.15.0
+nvm use 24.15.0
+node --version
+npm --version
+```
+
+如果此前使用不兼容的 Node.js 安装依赖，启动时可能出现 Rolldown `Cannot find native binding`。Docker 启动方式会在 Linux 容器中重建并隔离依赖，无需删除本机的 `package-lock.json` 或 `node_modules`。继续原生运行时，应切换到 Node.js 24.15.x 后，在 `frontend/` 目录重新执行 `npm ci --include=optional`；项目通过 `.npmrc` 对 Node/npm 版本进行严格校验，并确保安装平台原生的 optional dependency。
+
+打开 `http://localhost:5173/login`，使用下节列出的演示身份登录。HTTP Basic 凭据只保存在当前页面运行时内存；刷新或关闭页面后必须重新登录。
+
 ## 本地演示身份
 
 US-003 使用无状态 HTTP Basic 提供最小可信认证上下文。该方案只服务于本地开发和自动化测试，不包含注册、密码管理、用户数据库或 OAuth2 身份供应商。除 `/actuator/health` 外的端点都需要认证。
+
+R1 会交付可操作的演示登录和完整采购授权页面，但不自行建设生产身份平台。首次部署到共享环境、接入真实用户或使用真实业务数据之前，必须通过独立的 Production Readiness 工作接入正式 OIDC/OAuth2 身份供应商、HTTPS、Secret 管理和受控的用户/角色映射；R2/R3 不会自动放宽这一部署门槛。
 
 | 用户名 | 角色 |
 | --- | --- |
@@ -363,6 +417,8 @@ API 使用稳定错误代码区分请求格式、字段校验、认证、授权�
 
 ## 运行测试
 
+### 后端
+
 Windows PowerShell：
 
 ```powershell
@@ -378,3 +434,11 @@ macOS / Linux：
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
 应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V6、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请、审批任务和审计轨迹集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者/受理人范围、分页、详情查询、稳定审计排序、只读边界、版本条件更新、审批路由、幂等重放和并发冲突。
+
+### 前端
+
+```shell
+docker compose run --rm frontend npm run check
+```
+
+容器入口会先按照 lockfile 安装依赖，再由 `npm run check` 顺序执行 lint、测试和生产构建。需要单独执行某项检查时，可以把末尾命令替换为 `npm run lint`、`npm run typecheck`、`npm test` 或 `npm run build`。前端单元与组件测试使用 Vitest、React Testing Library 和 MSW，不需要真实后端或公网；真实浏览器端到端测试将在 `FE-017` 引入。
