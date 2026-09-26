@@ -3,7 +3,7 @@
 - 文档状态：Baselined
 - 版本：1.0
 - 日期：2026-09-23
-- 当前实现状态：`FE-000` 已实现并进入评审；采购、审批和审计业务页面尚未实现
+- 当前实现状态：`FE-000` 已合并；`FE-010` 创建采购申请页面已实现并进入评审；列表、详情、编辑、提交、审批和审计页面尚未实现
 
 ## 1. 架构目标
 
@@ -89,7 +89,7 @@ frontend/src/
 这是按阶段形成的目标结构，不是 `FE-000` 必须一次创建的目录清单：
 
 - `FE-000` 只创建 `app`、`identity` 和实际需要的 `shared` 文件。
-- `procurement`、`approval`、`audit` 在对应任务启动时创建。
+- `FE-010` 已按创建草稿用例建立 `procurement` 的 API、Model、Components 和 Page；其余采购能力及 `approval`、`audit` 在对应任务启动时创建。
 - `materials`、`analysis`、`agent` 只在 R2/R3 Story 到来时创建。
 - 空目录、空 Slice、占位 Endpoint 和“未来可能用到”的组件不提交。
 

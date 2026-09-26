@@ -1,4 +1,5 @@
-import { Alert, Card, Typography } from 'antd'
+import { Alert, Button, Card, Space, Typography } from 'antd'
+import { Link } from 'react-router-dom'
 
 import { useAppSelector } from './hooks'
 
@@ -7,6 +8,7 @@ export function HomePage() {
     (state) => state.session.currentUser?.roles ?? [],
   )
   const isAdminOnly = roles.length === 1 && roles.includes('ADMIN')
+  const isRequester = roles.includes('REQUESTER')
 
   if (isAdminOnly) {
     return (
@@ -26,9 +28,9 @@ export function HomePage() {
 
   return (
     <Card>
-      <Typography.Title level={2}>R1 前端基础已就绪</Typography.Title>
+      <Typography.Title level={2}>R1 采购授权演示</Typography.Title>
       <Typography.Paragraph>
-        当前版本只建立认证、路由、状态和 API 基础设施。采购与审批页面将按
+        采购申请创建页面已经开放；列表、编辑、提交和审批页面将按后续
         GitHub Issue 逐项交付。
       </Typography.Paragraph>
       <Alert
@@ -36,6 +38,13 @@ export function HomePage() {
         showIcon
         title="后端仍是业务事实和权限判断的最终来源"
       />
+      {isRequester ? (
+        <Space className="home-actions">
+          <Button type="primary">
+            <Link to="/requester/requests/new">创建采购申请</Link>
+          </Button>
+        </Space>
+      ) : null}
     </Card>
   )
 }
