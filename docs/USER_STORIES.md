@@ -1,8 +1,8 @@
 # 据衡 R1 User Stories
 
 - 文档状态：Baselined
-- 版本：1.1
-- 日期：2026-09-23
+- 版本：1.2
+- 日期：2026-09-26
 - 对应需求基线：`docs/REQUIREMENTS.md` 1.2
 - 当前范围：R1 采购授权核心、最终结果查询与前端集成
 
@@ -16,7 +16,7 @@
 - `docs/USER_STORIES.md` 定义近期 Story 的详细行为与验收边界。
 - `docs/REQUIREMENTS.md` 仍是产品需求基线；Story 不能静默改变 Requirement。
 
-R1 后端 `US-003`～`US-016` 已完成。当前通过既有 Story 的 Frontend Task 交付 React 用户界面，并用 `US-017` 补齐页面刷新后读取最终审批结果的契约；R2 证据智能和 R3 受约束 Agent 本轮不展开。
+R1 后端 `US-003`～`US-017` 已完成实现。当前通过既有 Story 的 Frontend Task 交付 React 用户界面；R2 证据智能和 R3 受约束 Agent 本轮不展开。
 
 ## 2. R1 用户旅程
 
@@ -709,7 +709,7 @@ Java 17 下执行 `mvnw.cmd clean test`，96 个测试全部通过。申请创�
 | --- | --- |
 | Release | R1 Frontend Integration |
 | Priority | P0 |
-| Status | PLANNED |
+| Status | IN_REVIEW |
 | Dependencies | `US-015` |
 | Requirements | `FR-APP-015`、`FR-IAM-003`、`FR-IAM-005`、`NFR-SEC-002` |
 
@@ -762,6 +762,10 @@ Java 17 下执行 `mvnw.cmd clean test`，96 个测试全部通过。申请创�
 - 只返回决定白名单字段，不暴露幂等载荷、内部异常或认证信息。
 - 页面刷新前后的结果一致，读取行为不产生新的业务状态变化。
 
+### 实现记录
+
+已确认并实现 `GET /api/procurement-requests/{requestId}/approval-decision`。Application 只允许 `REQUESTER` 或 `APPROVER` 业务角色进入用例，Repository SQL 使用可信当前用户同时限定申请创建者或关联任务受理人；只返回数据库已保存的唯一决定白名单字段。尚无决定、申请不存在和越权访问统一返回 `404 RESOURCE_NOT_FOUND`，未提供任何修改、覆盖或删除端点；复用 V6 既有表、外键和唯一约束，不新增迁移。Java 17 下定向 6 个 PostgreSQL 集成测试与 `mvnw.cmd clean test` 全量 102 个测试均通过。
+
 ## 14. R1 Story 顺序
 
 ```text
@@ -776,7 +780,7 @@ US-000 服务启动与健康检查（Enabler）
   -> US-014 查看待审批任务
   -> US-015 人工批准或驳回
   -> US-016 查看申请审计轨迹
-  -> US-017 查看最终审批结果（Frontend Integration Gap）
+  -> US-017 查看最终审批结果
 ```
 
 该顺序用于控制学习和交付范围，不要求把所有 Story 一次性设计成代码。
@@ -824,7 +828,7 @@ US-000 服务启动与健康检查（Enabler）
 
 ## 18. Story 启动前决策
 
-已确认 `US-016` 保留在 R1，作为 P1 的完整 Demo 能力；`US-003`～`US-016` 后端均已完成。R1 前端复用这些业务 Story，并以 `US-017` 补齐刷新后读取最终决定的用户结果。
+已确认 `US-016` 保留在 R1，作为 P1 的完整 Demo 能力；`US-003`～`US-017` 后端均已完成实现。R1 前端复用这些业务 Story，并通过已实现的 `US-017` 只读契约恢复刷新后的最终决定。
 
 已确认：
 
@@ -833,4 +837,4 @@ US-000 服务启动与健康检查（Enabler）
 3. R1 不为 `ADMIN` 提供业务页面或业务数据超级权限。
 4. R1 前端使用 React、TypeScript、Vite、React Router、Ant Design、Axios、Redux Toolkit 和 RTK Query。
 
-`US-017` 启动前仍需确认独立最终决定读取端点的最终路径，以及尚无决定时的 HTTP 语义；确认前前端不得模拟该接口已经存在。
+`US-017` 已确认独立路径为 `GET /api/procurement-requests/{requestId}/approval-decision`；尚无决定、申请不存在和越权统一使用安全的 `404 RESOURCE_NOT_FOUND` 语义。

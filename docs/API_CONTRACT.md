@@ -1,13 +1,13 @@
 # 据衡 R1 API Contract
 
 - 文档状态：Baselined
-- 版本：1.0
-- 日期：2026-09-23
-- 事实来源：当前 `main` 已实现的 Spring MVC Controller 与 Web DTO
+- 版本：1.1
+- 日期：2026-09-26
+- 事实来源：当前已实现的 Spring MVC Controller、Web DTO 与集成测试
 
 ## 1. 使用规则
 
-本文记录 R1 React 客户端可以依赖的已实现 HTTP Contract。除“计划中的 Contract”章节外，路径、字段、状态码和错误码均来自当前代码；如果本文与实现不一致，必须停止前端扩展、核对测试并修正文档或通过明确 Story 变更 Contract，不能让客户端自行猜测。
+本文记录 R1 React 客户端可以依赖的已实现 HTTP Contract。路径、字段、状态码和错误码均来自当前代码；如果本文与实现不一致，必须停止前端扩展、核对测试并修正文档或通过明确 Story 变更 Contract，不能让客户端自行猜测。
 
 所有业务 API：
 
@@ -34,6 +34,7 @@
 | GET | `/api/approval-tasks/{taskId}` | `APPROVER`，任务受理人 | 200 | 查看任务及完整申请 |
 | POST | `/api/approval-tasks/{taskId}/approve` | `APPROVER`，任务受理人、`PENDING` | 200 | 幂等批准 |
 | POST | `/api/approval-tasks/{taskId}/reject` | `APPROVER`，任务受理人、`PENDING` | 200 | 幂等驳回 |
+| GET | `/api/procurement-requests/{requestId}/approval-decision` | `REQUESTER` 或 `APPROVER`，创建者或任务受理人 | 200 | 读取已保存的唯一最终决定 |
 | GET | `/api/procurement-requests/{requestId}/audit-events` | 创建者或任务受理人 | 200 | 读取只读审计轨迹 |
 
 角色只表示进入用例的必要条件，不替代所有权、任务归属、状态、版本和幂等校验。`ADMIN` 不自动获得申请或审批数据范围。
@@ -311,7 +312,7 @@ interface ApprovalDecisionResponse {
 }
 ```
 
-该响应只在命令成功或相同幂等请求重放时取得。当前查询详情无法在刷新后恢复此结构，见第 9 节。
+该响应在命令成功或相同幂等请求重放时取得；页面刷新后通过第 9 节的独立只读端点恢复已保存决定。
 
 ## 7. 审计 Contract
 
@@ -358,17 +359,15 @@ interface AuditEventResponse {
 
 Axios 自身的网络、超时和取消错误不伪装成上述后端错误。写请求遇到网络或超时无法确认结果时，不自动重试；用户以相同意图重试必须复用原幂等键。
 
-## 9. 计划中的 Contract：US-017
-
-以下接口尚未实现，前端在 `US-017` 合并前不得调用或使用 MSW 假装其已经存在。
-
-建议 Contract：
+## 9. 最终审批决定 Contract
 
 `GET /api/procurement-requests/{requestId}/approval-decision`
 
-- 允许申请创建者或关联任务受理审批人读取。
-- 无最终决定、申请不存在和无权访问使用经 Story 测试确认的稳定不可枚举语义。
-- 只读，不提供更新、覆盖或删除方法。
+- 只允许具有 `REQUESTER` 或 `APPROVER` 业务角色，且是申请创建者或关联任务受理人的用户读取。
+- 成功时返回数据库中按 `approval_task_id` 唯一约束保存的最终决定，不根据申请或任务状态推断决定。
+- 尚无最终决定、申请不存在和无权访问全部返回 `404 RESOURCE_NOT_FOUND`，安全消息统一为 `Resource was not found`；前端只能显示“结果尚不存在或不可访问”，不能据此推断资源或决定是否存在。
+- 未认证返回 `401 AUTHENTICATION_REQUIRED`；只有 `ADMIN` 等不具备上述业务角色的用户返回 `403 ACCESS_DENIED`。
+- 端点只支持 GET；POST、PUT、PATCH、DELETE 不属于 Contract，并返回统一 405。不存在修改、覆盖、撤销或删除最终决定的公开方法。
 
 ```ts
 interface FinalApprovalDecisionResponse {
@@ -382,7 +381,7 @@ interface FinalApprovalDecisionResponse {
 }
 ```
 
-最终路径、无结果语义和 HTTP 状态必须在 `US-017` 文件级实施计划中确认，并以实现及自动化测试回写本文。
+响应只包含上述白名单字段，不返回申请正文、幂等记录、内部异常或认证信息。重复读取不会改变申请、任务或决定状态，也不会追加审计事件。
 
 ## 10. Contract 变更规则
 

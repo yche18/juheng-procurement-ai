@@ -1,8 +1,8 @@
 # 据衡 R1 数据库关系模型
 
 - 文档状态：Baselined
-- 版本：1.4
-- 当前物理范围：截至 US-016 查看申请审计轨迹
+- 版本：1.5
+- 当前物理范围：截至 US-017 查看最终审批结果
 - 数据库：PostgreSQL 17
 
 ## 1. 文档目的
@@ -12,7 +12,7 @@
 1. R1 关系演进总览，用来避免当前表结构阻塞后续提交和审批 Story。
 2. 截至当前 Story 的物理 ERD，只对已经进入实现的表定义完整字段、类型和约束。
 
-后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 增加提交用例必需的审批任务和幂等记录，US-014 增加任务查询索引，US-015 通过 V6 增加每任务唯一的人工审批决定，US-016 复用既有审计表与索引提供带数据范围的只读查询而不新增迁移。
+后续表出现在总览中不表示已经实现。每个 Story 仍通过独立 Flyway 迁移增加自己的表和约束；US-013 增加提交用例必需的审批任务和幂等记录，US-014 增加任务查询索引，US-015 通过 V6 增加每任务唯一的人工审批决定，US-016 复用既有审计表与索引提供带数据范围的只读查询，US-017 复用 V6 的任务外键和每任务唯一约束读取最终决定，后二者均不新增迁移。
 
 ## 2. R1 关系演进总览
 
@@ -32,12 +32,12 @@ erDiagram
 | `procurement_item` | US-010 | 已落库 |
 | `audit_event` | US-010 | 已落库；US-013/US-015 复用写入；US-016 启用授权查询 |
 | `approval_task` | US-013 | 已落库；US-014 增加查询索引；US-015 启用终态条件更新 |
-| `approval_decision` | US-015 | 已落库 |
+| `approval_decision` | US-015 | 已落库；US-017 启用带创建者或受理人范围的只读查询 |
 | `idempotency_record` | US-013 | 已落库 |
 
 R1 不建立 `user` 表。`creator_id`、`actor_id` 和 `assignee_id` 保存可信认证上下文中的稳定用户 ID，不对客户端提供的身份声明建立信任。
 
-## 3. 截至 US-016 的物理 ERD
+## 3. 截至 US-017 的物理 ERD
 
 ```mermaid
 erDiagram
@@ -125,7 +125,7 @@ erDiagram
 
 ### 3.1 已实现的查询索引
 
-下表列出截至 US-016 由 Flyway 显式创建、用于业务查询的非约束索引。主键和 `UNIQUE` 约束对应的 PostgreSQL 自动索引仍由各表约束定义，本表不重复列出。V6 的 `UNIQUE (approval_task_id)` 已为按任务读取唯一决定建立约束索引，因此不再增加重复索引。
+下表列出截至 US-017 由 Flyway 显式创建、用于业务查询的非约束索引。主键和 `UNIQUE` 约束对应的 PostgreSQL 自动索引仍由各表约束定义，本表不重复列出。V6 的 `UNIQUE (approval_task_id)` 已为按任务读取唯一决定建立约束索引，因此不再增加重复索引。
 
 | 索引 | 表与列顺序 | 用途 | 引入 Story / 迁移 |
 | --- | --- | --- | --- |
@@ -186,6 +186,7 @@ erDiagram
 - `actor_id` 只来自可信 `CurrentUser`，`decided_at` 由服务端时钟产生并规范到 PostgreSQL 可稳定重放的微秒精度。
 - `APPROVED` 的 `comment` 可以为空；非空意见去除首尾空白且最多 2000 字符。`REJECTED` 必须包含非空 `comment`，Java 领域规则和数据库 `CHECK` 同时保护该约束。
 - Application 先条件更新任务，命中一行后才插入决定；随后条件更新仍为 `SUBMITTED` 的申请、追加审计并完成幂等记录。任一步失败时同一数据库事务整体回滚。
+- US-017 通过申请、任务和决定的联结查询，同时使用可信 `viewerId` 限定申请创建者或任务受理人；只有决定真实存在时才返回白名单字段。尚无决定、不存在和越权统一为空查询结果并映射为安全 404，读取不改变任何状态。
 
 ### 4.6 idempotency_record
 
@@ -230,6 +231,7 @@ erDiagram
 - US-014 使用独立的 `V5` 增加审批任务受理人分页和状态筛选索引，不新增业务表或修改任务生命周期字段。
 - US-015 使用独立的 `V6` 创建 `approval_decision`，通过任务外键、每任务唯一约束、决定类型检查和驳回原因检查保护最终决定。
 - US-016 直接使用 V2 的审计表和 `idx_audit_event_request_time`，没有 schema 变化，因此不创建空的 V7 迁移。
+- US-017 直接使用 V6 的 `approval_decision`、任务外键和 `UNIQUE (approval_task_id)` 约束索引，没有 schema 变化，因此同样不创建空迁移。
 - `procurement_request.status` 在 `V2` 已允许 `SUBMITTED`，`audit_event` 也可承载新的 action，因此 V4 不需要为提交动作修改这两张表。
 - V4 不提前创建 `approval_decision`；V6 也不预建材料、证据、风险或 AI 相关结构。
 
