@@ -1,8 +1,8 @@
 # 据衡采购授权与证据决策平台
 
-据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端核心已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回和授权审计轨迹。R1 Release 尚未完成，当前正在交付 React 前端、剩余只读 Contract 和真实端到端 Demo Baseline；这些全部验收后才进入 R2 证据智能。
+据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端核心已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回、最终决定读取和授权审计轨迹。R1 Release 尚未完成，当前正在交付 React 前端和真实端到端 Demo Baseline；这些全部验收后才进入 R2 证据智能。
 
-R1 前端的 `FE-000` 基础骨架与演示登录已经合并，`FE-010` 创建采购申请页面已实现并进入评审。当前具备受保护路由、应用外壳、内存凭据、统一 API 错误、Redux Toolkit/RTK Query、Docker 开发环境，以及申请人创建采购草稿并查看服务端计算结果的页面；列表、详情、编辑、提交和审批页面仍按后续 Frontend Task 逐项交付。设计基线见：
+R1 前端的 `FE-000` 基础骨架、演示登录与 `FE-010` 创建采购申请页面已经合并。当前具备受保护路由、应用外壳、内存凭据、统一 API 错误、Redux Toolkit/RTK Query、Docker 开发环境，以及申请人创建采购草稿并查看服务端计算结果的页面；列表、详情、编辑、提交和审批页面仍按后续 Frontend Task 逐项交付。设计基线见：
 
 - [`docs/R1_FRONTEND_UX.md`](docs/R1_FRONTEND_UX.md)
 - [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)
@@ -381,6 +381,33 @@ Repository 查询同时携带可信当前用户 ID：只有 `creator_id` 或关�
 
 该路径只开放 `GET`。`POST`、`PUT` 和 `DELETE` 返回 `405 METHOD_NOT_ALLOWED`，普通业务 API 不提供修改或删除审计事实的能力。US-016 直接复用 V2 已建立的 `(procurement_request_id, occurred_at, id)` 索引，因此没有新增 Flyway 迁移。
 
+## 查看最终审批结果
+
+申请创建者和该申请审批任务的受理人可以在批准或驳回完成后，通过独立只读接口恢复数据库中已经保存的唯一最终决定：
+
+```shell
+curl -u demo-requester:juheng-local \
+  http://localhost:8080/api/procurement-requests/替换为申请UUID/approval-decision
+```
+
+成功响应只包含申请 ID、任务 ID、决定 ID、决定类型、可信操作者、服务端决定时间和意见：
+
+```json
+{
+  "procurementRequestId": "申请UUID",
+  "approvalTaskId": "审批任务UUID",
+  "decisionId": "最终决定UUID",
+  "decision": "REJECTED",
+  "actorId": "demo-approver",
+  "decidedAt": "2026-09-25T09:30:00Z",
+  "comment": "预算依据不足"
+}
+```
+
+Repository SQL 同时携带申请 ID 与认证上下文中的用户 ID，只有申请 `creator_id` 或关联任务 `assignee_id` 命中时才会读取决定。尚未形成最终决定、申请不存在和越权访问统一返回 `404 RESOURCE_NOT_FOUND` 与安全通用消息；接口不会根据申请或任务状态伪造默认批准、默认驳回或空决定。
+
+该路径只开放 `GET`。`POST`、`PUT`、`PATCH` 和 `DELETE` 返回 `405 METHOD_NOT_ALLOWED`，不会改变数据库中的最终决定。US-017 复用 V6 的审批决定表、任务外键和每任务唯一约束，不新增 Flyway 迁移。
+
 ## API 错误响应
 
 API 使用稳定错误代码区分请求格式、字段校验、认证、授权、业务冲突和系统故障。最小响应结构如下：
@@ -435,7 +462,7 @@ macOS / Linux：
 
 完整测试包含基于 Testcontainers 的 PostgreSQL 集成测试，因此运行前需要启动 Docker。测试会自行创建和销毁临时 PostgreSQL 容器，不会使用或修改 `compose.yaml` 创建的本地数据库。
 
-应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V6、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请、审批任务和审计轨迹集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者/受理人范围、分页、详情查询、稳定审计排序、只读边界、版本条件更新、审批路由、幂等重放和并发冲突。
+应用上下文和健康端点测试使用 `no-database` profile，继续保持为不依赖 PostgreSQL 的快速测试。Flyway 集成测试会验证空库依次应用 V1 至 V6、迁移校验、查询索引以及重复执行不会再次应用已有版本；采购申请、审批任务、最终决定和审计轨迹集成测试会验证真实安全过滤器、MyBatis-Plus 持久化、字段校验、服务端受控字段、事务回滚、所有者/受理人范围、分页、详情查询、统一不可枚举语义、稳定审计排序、只读边界、版本条件更新、审批路由、幂等重放和并发冲突。
 
 ### 前端
 
