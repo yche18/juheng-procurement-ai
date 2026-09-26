@@ -30,7 +30,7 @@ export function HomePage() {
     <Card>
       <Typography.Title level={2}>R1 采购授权演示</Typography.Title>
       <Typography.Paragraph>
-        采购申请创建页面已经开放；列表、编辑、提交和审批页面将按后续
+        采购申请创建、我的申请列表和详情已经开放；编辑、提交和审批页面将按后续
         GitHub Issue 逐项交付。
       </Typography.Paragraph>
       <Alert
@@ -40,6 +40,9 @@ export function HomePage() {
       />
       {isRequester ? (
         <Space className="home-actions">
+          <Button type="primary">
+            <Link to="/requester/requests">查看我的申请</Link>
+          </Button>
           <Button type="primary">
             <Link to="/requester/requests/new">创建采购申请</Link>
           </Button>

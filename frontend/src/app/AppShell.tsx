@@ -28,9 +28,14 @@ export function AppShell() {
             据衡
           </Typography.Title>
           {currentUser?.roles.includes('REQUESTER') ? (
-            <Link className="app-nav-link" to="/requester/requests/new">
-              创建申请
-            </Link>
+            <Space>
+              <Link className="app-nav-link" to="/requester/requests">
+                我的申请
+              </Link>
+              <Link className="app-nav-link" to="/requester/requests/new">
+                创建申请
+              </Link>
+            </Space>
           ) : null}
         </div>
         <Space wrap>

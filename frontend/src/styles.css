@@ -94,6 +94,38 @@ input {
   margin-top: 24px;
 }
 
+.page-heading-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.page-heading-row .ant-typography {
+  margin-top: 0;
+}
+
+.request-list-toolbar {
+  margin-bottom: 20px;
+}
+
+.status-filter {
+  min-width: 210px;
+}
+
+.page-alert {
+  margin-bottom: 20px;
+}
+
+.request-detail-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.detail-section-title.ant-typography {
+  margin-top: 28px;
+}
+
 @media (max-width: 640px) {
   .app-header {
     align-items: flex-start;
@@ -108,5 +140,9 @@ input {
 
   .app-content {
     padding: 20px 16px;
+  }
+
+  .page-heading-row {
+    flex-direction: column;
   }
 }

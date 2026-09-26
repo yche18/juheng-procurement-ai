@@ -173,6 +173,12 @@ describe('CreateProcurementRequestPage', () => {
     expect(screen.getByText('DRAFT')).toBeInTheDocument()
     expect(screen.getByText('0')).toBeInTheDocument()
     expect(screen.getAllByText(/18,000\.00/)).not.toHaveLength(0)
+    expect(
+      screen.getByRole('link', { name: '查看申请详情' }),
+    ).toHaveAttribute(
+      'href',
+      '/requester/requests/10000000-0000-0000-0000-000000000001',
+    )
     expect(requestBody).toEqual({
       title: '研发电脑采购',
       purpose: '补充开发设备',

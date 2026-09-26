@@ -3,15 +3,17 @@ import {
   Card,
   Descriptions,
   Result,
+  Space,
   Table,
   Tag,
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
+import { Link } from 'react-router-dom'
 
-import { categoryLabels, formatCny } from '../model/procurementForm'
+import { formatCny } from '../model/procurementForm'
+import { getCategoryDisplay } from '../model/procurementPresentation'
 import type {
-  CategoryCode,
   CreateProcurementRequestResponse,
   ProcurementItemResponse,
 } from '../types/procurement'
@@ -27,7 +29,7 @@ const itemColumns: ColumnsType<ProcurementItemResponse> = [
   {
     title: '品类',
     dataIndex: 'categoryCode',
-    render: (value: CategoryCode) => categoryLabels[value] ?? value,
+    render: (value: string) => getCategoryDisplay(value),
   },
   {
     title: '数量',
@@ -57,9 +59,12 @@ export function CreatedProcurementRequestResult({
         title="采购申请草稿已创建"
         subTitle={`业务编号：${request.businessNumber}`}
         extra={
-          <Button type="primary" onClick={onCreateAnother}>
-            继续创建另一份申请
-          </Button>
+          <Space wrap>
+            <Button type="primary">
+              <Link to={`/requester/requests/${request.id}`}>查看申请详情</Link>
+            </Button>
+            <Button onClick={onCreateAnother}>继续创建另一份申请</Button>
+          </Space>
         }
       />
       <Descriptions

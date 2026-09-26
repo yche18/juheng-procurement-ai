@@ -102,6 +102,18 @@ export function isAuthenticationRequiredError(
   )
 }
 
+export function isBackendErrorCode(error: unknown, code: string): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'kind' in error &&
+    error.kind === 'backend' &&
+    'response' in error &&
+    isApiErrorResponse(error.response) &&
+    error.response.code === code
+  )
+}
+
 export function getApiErrorMessage(error: unknown): string {
   if (typeof error !== 'object' || error === null || !('kind' in error)) {
     return '操作失败，请稍后重试。'
