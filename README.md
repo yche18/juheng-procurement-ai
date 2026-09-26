@@ -2,7 +2,7 @@
 
 据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端核心已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回和授权审计轨迹。R1 Release 尚未完成，当前正在交付 React 前端、剩余只读 Contract 和真实端到端 Demo Baseline；这些全部验收后才进入 R2 证据智能。
 
-R1 前端的 `FE-000` 基础骨架与演示登录已实现并等待评审，当前具备受保护路由、应用外壳、内存凭据、统一 API 错误、Redux Toolkit/RTK Query、Docker 开发环境和组件测试基础。采购与审批业务页面仍按后续 Frontend Task 逐项交付。设计基线见：
+R1 前端的 `FE-000` 基础骨架与演示登录已经合并，`FE-010` 创建采购申请页面已实现并进入评审。当前具备受保护路由、应用外壳、内存凭据、统一 API 错误、Redux Toolkit/RTK Query、Docker 开发环境，以及申请人创建采购草稿并查看服务端计算结果的页面；列表、详情、编辑、提交和审批页面仍按后续 Frontend Task 逐项交付。设计基线见：
 
 - [`docs/R1_FRONTEND_UX.md`](docs/R1_FRONTEND_UX.md)
 - [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)
@@ -181,6 +181,8 @@ R1 的提交路由默认将任务分配给 `demo-approver`。可以使用逗号�
 ## 创建采购申请草稿
 
 具有 `REQUESTER` 角色的用户可以调用 `POST /api/procurement-requests` 创建草稿。创建者、币种 `CNY`、状态 `DRAFT`、版本、业务编号、预计总额和审计字段均由服务端控制。
+
+登录前端后也可以进入 `/requester/requests/new` 使用动态采购项表单创建草稿。页面只提交可编辑字段，请求进行中禁用重复提交；成功后在当前页面展示服务端返回的业务编号、状态、版本、行金额和总额。申请列表与详情将在 `FE-011` 中接入，因此 `FE-010` 不会导航到尚未实现的占位详情页。
 
 ```shell
 curl -u demo-requester:juheng-local \

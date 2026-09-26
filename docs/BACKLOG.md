@@ -22,9 +22,9 @@
 
 ## 2. 当前状态
 
-- 当前任务：`FE-000 React 前端骨架与演示登录`，状态为 `IN_REVIEW`。
+- 当前任务：`FE-010 创建采购申请`，状态为 `IN_REVIEW`。
 - 当前阶段：R1 后端授权与审计闭环已经完成；当前先交付 R1 React 前端、现有 API 集成和真实端到端演示。材料、RAG 和 Agent 尚未实现。
-- 后续顺序：`FE-000` 验收合并后启动 `FE-010`，再按已建立的 GitHub Sub-issue 和阻塞关系小步完成 R1 Demo Baseline；完成后以垂直切片进入 `US-020`。
+- 后续顺序：`FE-010` 验收合并后启动 `FE-011`，再按已建立的 GitHub Sub-issue 和阻塞关系小步完成 R1 Demo Baseline；完成后以垂直切片进入 `US-020`。
 
 ## 3. Epic 0：项目启动文档
 
@@ -216,8 +216,8 @@ Frontend Task 不复制现有业务 User Story，而是引用对应 Story 和 Ac
 
 | Task | 状态 | 依赖 | 目标结果 |
 | --- | --- | --- | --- |
-| FE-000 React 前端骨架与演示登录 | IN_REVIEW | DOC-004 | 建立 React/TypeScript/Vite、路由、Ant Design、Axios、Redux Toolkit/RTK Query、内存演示认证、Docker 开发环境和测试基线，不创建空业务模块 |
-| FE-010 创建采购申请 | PLANNED | FE-000、US-010 | 申请人通过动态采购项表单创建草稿，并看到统一校验和服务端结果 |
+| FE-000 React 前端骨架与演示登录 | DONE | DOC-004 | 建立 React/TypeScript/Vite、路由、Ant Design、Axios、Redux Toolkit/RTK Query、内存演示认证、Docker 开发环境和测试基线，不创建空业务模块 |
+| FE-010 创建采购申请 | IN_REVIEW | FE-000、US-010 | 申请人通过动态采购项表单创建草稿，并看到统一校验和服务端结果 |
 | FE-011 我的申请列表与详情 | PLANNED | FE-010、US-011、US-017 | 申请人分页筛选、查看详情和最终决定，覆盖 Loading、Empty 与 Error |
 | FE-012 编辑草稿 | PLANNED | FE-011、US-012 | 申请人编辑完整草稿快照，陈旧版本冲突不静默覆盖本地内容 |
 | FE-013 提交申请 | PLANNED | FE-012、US-013 | 申请人以稳定幂等键提交当前版本，成功后刷新为只读状态 |
@@ -227,6 +227,8 @@ Frontend Task 不复制现有业务 User Story，而是引用对应 Story 和 Ac
 | FE-017 R1 端到端验收 | PLANNED | FE-016 | 使用真实 Spring Boot、PostgreSQL 和浏览器验证完整 R1 流程并建立 `v0.1.0` 候选基线 |
 
 `FE-000` 实施验证：Docker 开发镜像固定 Node.js 24.15.0 和 npm 11.6.2；容器内执行 `npm run check`，ESLint、TypeScript、7 个 Vitest 测试文件中的 16 个测试和 Vite 生产构建全部通过，`npm audit` 报告 0 个已知漏洞。Vite `/login` 返回 200，未认证的 `/api/current-user` 经容器代理返回预期 401，Linux Rolldown 原生 binding、源码挂载和 polling 配置均已验证。实现只建立 `app`、`identity` 与 `shared/api` 所需边界，没有创建采购、审批、材料、分析或 Agent 空模块。
+
+`FE-010` 实施验证：申请人受保护路由、动态 1～100 项采购表单、四个受控品类、与 API Contract 对齐的字段和十进制校验、精确创建请求体、服务端权威金额结果、嵌套字段错误、网络错误及请求进行中防重复点击均由组件/API 测试覆盖。本机 Node.js 24.19.0 与 npm 11.6.2 下，ESLint 通过，8 个 Vitest 测试文件中的 22 个测试全部通过，TypeScript 与 Vite 生产构建成功；未新增依赖、后端接口或未来 Story 占位实现。
 
 前端不建设 `ADMIN` 管理页面、移动端、国际化、生产认证、材料、分析或 Agent UI。R2/R3 目录和依赖只在对应 Story 启动时创建。
 

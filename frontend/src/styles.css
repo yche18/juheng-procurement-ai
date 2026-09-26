@@ -63,16 +63,47 @@ input {
   color: #fff;
 }
 
+.app-brand-and-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.app-nav-link {
+  color: rgb(255 255 255 / 88%);
+  font-weight: 600;
+}
+
+.app-nav-link:hover {
+  color: #fff;
+}
+
 .app-content {
   width: min(1180px, 100%);
   margin: 0 auto;
   padding: 32px 24px;
 }
 
+.form-alert {
+  margin-bottom: 24px;
+}
+
+.form-actions,
+.home-actions,
+.result-section-title.ant-typography {
+  margin-top: 24px;
+}
+
 @media (max-width: 640px) {
   .app-header {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .app-brand-and-nav {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .app-content {

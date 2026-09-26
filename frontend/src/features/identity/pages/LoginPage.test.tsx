@@ -18,7 +18,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /登\s*录/ }))
 
     expect(
-      await screen.findByRole('heading', { name: 'R1 前端基础已就绪' }),
+      await screen.findByRole('heading', { name: 'R1 采购授权演示' }),
     ).toBeInTheDocument()
     expect(screen.getByText('demo-multi-role')).toBeInTheDocument()
     expect(screen.getByText('REQUESTER')).toBeInTheDocument()
