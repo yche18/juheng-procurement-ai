@@ -9,9 +9,8 @@ import { ProcurementRequestFields } from '../components/ProcurementRequestFields
 import {
   asBackendError,
   initialFormValue,
-  toFormFieldName,
+  partitionProcurementFormErrors,
   toRequest,
-  type ProcurementFormFieldName,
   type ProcurementRequestFormValue,
 } from '../model/procurementForm'
 import type { CreateProcurementRequestResponse } from '../types/procurement'
@@ -36,20 +35,11 @@ export function CreateProcurementRequestPage() {
         backendError.response.fieldErrors.length > 0
       ) {
         const itemCount = form.getFieldsValue().items?.length ?? 0
-        const locatedErrors: Array<{
-          name: ProcurementFormFieldName
-          errors: string[]
-        }> = []
-        const unlocatedMessages: string[] = []
-
-        backendError.response.fieldErrors.forEach((violation) => {
-          const name = toFormFieldName(violation.field, itemCount)
-          if (name) {
-            locatedErrors.push({ name, errors: [violation.message] })
-          } else {
-            unlocatedMessages.push(violation.message)
-          }
-        })
+        const { locatedErrors, unlocatedMessages } =
+          partitionProcurementFormErrors(
+            backendError.response.fieldErrors,
+            itemCount,
+          )
 
         form.setFields(locatedErrors)
         setPageError(

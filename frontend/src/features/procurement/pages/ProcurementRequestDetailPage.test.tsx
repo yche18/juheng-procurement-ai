@@ -99,6 +99,9 @@ describe('ProcurementRequestDetailPage', () => {
     ).toBeInTheDocument()
     expect(screen.getByText('demo-approver')).toBeInTheDocument()
     expect(screen.getAllByText('已批准（APPROVED）')).toHaveLength(2)
+    expect(
+      screen.queryByRole('link', { name: '编辑草稿' }),
+    ).not.toBeInTheDocument()
     expect(decisionRequestCount).toBe(1)
   })
 
@@ -125,6 +128,10 @@ describe('ProcurementRequestDetailPage', () => {
     expect(
       await screen.findByText('当前状态尚无最终审批结果。'),
     ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: '编辑草稿' })).toHaveAttribute(
+      'href',
+      `/requester/requests/${requestId}/edit`,
+    )
     expect(decisionRequestCount).toBe(0)
   })
 

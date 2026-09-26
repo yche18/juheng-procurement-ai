@@ -6,6 +6,7 @@ import {
   Empty,
   Result,
   Skeleton,
+  Space,
   Table,
   Tag,
   Typography,
@@ -258,9 +259,18 @@ export function ProcurementRequestDetailPage() {
               {request.businessNumber}
             </Typography.Text>
           </div>
-          <Button>
-            <Link to="/requester/requests">返回我的申请</Link>
-          </Button>
+          <Space wrap>
+            {request.status === 'DRAFT' ? (
+              <Button type="primary">
+                <Link to={`/requester/requests/${request.id}/edit`}>
+                  编辑草稿
+                </Link>
+              </Button>
+            ) : null}
+            <Button>
+              <Link to="/requester/requests">返回我的申请</Link>
+            </Button>
+          </Space>
         </div>
 
         {!isProcurementRequestStatus(request.status) ? (

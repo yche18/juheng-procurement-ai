@@ -1,10 +1,14 @@
 import {
   isApiErrorResponse,
+  type FieldViolation,
   type FrontendApiError,
 } from '../../../shared/api/apiError'
+import { isKnownCategoryCode } from './procurementPresentation'
 import type {
   CategoryCode,
   CreateProcurementRequestRequest,
+  ProcurementRequestDetailResponse,
+  UpdateProcurementRequestRequest,
 } from '../types/procurement'
 
 export interface ProcurementItemFormValue {
@@ -27,6 +31,11 @@ export interface ProcurementRequestFormValue {
 export type ProcurementFormFieldName =
   | keyof ProcurementRequestFormValue
   | ['items', number, keyof ProcurementItemFormValue]
+
+export interface LocatedProcurementFormError {
+  name: ProcurementFormFieldName
+  errors: string[]
+}
 
 export const categoryLabels: Record<CategoryCode, string> = {
   LAPTOP: '笔记本电脑',
@@ -126,6 +135,61 @@ export function toRequest(
       estimatedUnitPrice: Number(item.estimatedUnitPrice),
     })),
   }
+}
+
+export function toUpdateRequest(
+  values: ProcurementRequestFormValue,
+  version: number,
+): UpdateProcurementRequestRequest {
+  return {
+    version,
+    ...toRequest(values),
+  }
+}
+
+export function toEditableFormValue(
+  request: ProcurementRequestDetailResponse,
+): ProcurementRequestFormValue | null {
+  if (!request.items.every((item) => isKnownCategoryCode(item.categoryCode))) {
+    return null
+  }
+
+  return {
+    title: request.title,
+    purpose: request.purpose,
+    department: request.department,
+    expectedDeliveryDate: request.expectedDeliveryDate,
+    items: request.items.map((item) => ({
+      name: item.name,
+      categoryCode: item.categoryCode as CategoryCode,
+      specification: item.specification,
+      quantity: String(item.quantity),
+      unit: item.unit,
+      estimatedUnitPrice: String(item.estimatedUnitPrice),
+    })),
+  }
+}
+
+export function partitionProcurementFormErrors(
+  violations: FieldViolation[],
+  itemCount: number,
+): {
+  locatedErrors: LocatedProcurementFormError[]
+  unlocatedMessages: string[]
+} {
+  const locatedErrors: LocatedProcurementFormError[] = []
+  const unlocatedMessages: string[] = []
+
+  violations.forEach((violation) => {
+    const name = toFormFieldName(violation.field, itemCount)
+    if (name) {
+      locatedErrors.push({ name, errors: [violation.message] })
+    } else {
+      unlocatedMessages.push(violation.message)
+    }
+  })
+
+  return { locatedErrors, unlocatedMessages }
 }
 
 export function asBackendError(
