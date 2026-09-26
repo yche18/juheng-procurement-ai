@@ -7,6 +7,7 @@ import { RequireSession } from '../features/identity/components/RequireSession'
 import { RequireRole } from '../features/identity/components/RequireRole'
 import { LoginPage } from '../features/identity/pages/LoginPage'
 import { CreateProcurementRequestPage } from '../features/procurement/pages/CreateProcurementRequestPage'
+import { EditProcurementRequestPage } from '../features/procurement/pages/EditProcurementRequestPage'
 import { ProcurementRequestDetailPage } from '../features/procurement/pages/ProcurementRequestDetailPage'
 import { ProcurementRequestListPage } from '../features/procurement/pages/ProcurementRequestListPage'
 import { AppShell } from './AppShell'
@@ -47,6 +48,14 @@ export const appRoutes: RouteObject[] = [
         element: (
           <RequireRole allowedRoles={['REQUESTER']}>
             <CreateProcurementRequestPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'requester/requests/:requestId/edit',
+        element: (
+          <RequireRole allowedRoles={['REQUESTER']}>
+            <EditProcurementRequestPage />
           </RequireRole>
         ),
       },

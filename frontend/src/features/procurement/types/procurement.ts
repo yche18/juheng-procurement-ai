@@ -44,6 +44,16 @@ export interface CreateProcurementRequestRequest {
   items: ProcurementItemWrite[]
 }
 
+export interface UpdateProcurementRequestRequest
+  extends CreateProcurementRequestRequest {
+  version: number
+}
+
+export interface UpdateProcurementRequestMutationArgs {
+  requestId: string
+  body: UpdateProcurementRequestRequest
+}
+
 export interface ProcurementItemResponse {
   id: string
   lineNumber: number
