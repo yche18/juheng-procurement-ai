@@ -3,7 +3,7 @@
 ## 1. 文档状态
 
 - 状态：Baselined
-- 版本：1.4
+- 版本：1.5
 - 当前设计基线：R1 采购授权核心与 React 演示客户端
 
 本文描述据衡的目标架构、依赖方向和安全边界，不表示所有目标组件都已经实现。当前仓库已完成截至 US-017 的 R1 后端授权、最终决定读取与审计闭环；当前阶段在不改变服务端权限和业务事实边界的前提下交付 React 演示客户端。对象存储、RAG 和 Agent 尚未实现，仍必须由对应 User Story 按需引入。
@@ -341,7 +341,7 @@ R1 的幂等键绑定调用者、操作、目标和请求指纹。相同载荷�
 - `US-013` 已采用配置驱动的单审批人路由；`JUHENG_APPROVAL_ASSIGNEE_IDS` 必须解析为唯一且非申请人本人的候选人，否则提交失败关闭。
 - `US-016` 已采用按申请的只读轨迹接口；Application 接受 `REQUESTER` 或 `APPROVER`，Repository 使用可信用户 ID 同时限制申请创建者或关联任务受理人范围，并按时间与事件 ID 稳定升序返回。
 - R1 前端采用 React、TypeScript、Vite、React Router、Ant Design、Axios、Redux Toolkit 和 RTK Query；HTTP Basic 凭据仅保存在内存，服务端数据由 RTK Query 管理，写请求不自动重试。
-- `US-017` 在实现前评审独立只读审批结果 Contract；当前申请和任务详情 API 不包含可在刷新后恢复的最终决定意见，前端不得从审计文本或页面缓存猜测。
+- `US-017` 已采用独立只读审批结果 Contract；申请和任务详情 API 仍不内嵌最终决定，前端只通过 `GET /api/procurement-requests/{requestId}/approval-decision` 恢复持久化事实，不从审计文本、申请状态或页面缓存猜测。
 - R1 是否需要任何 `ADMIN` 业务接口；当前只保留角色语义。
 
 这些事项应在对应 Story 进入 `READY` 前确定，但通常记录在 Story 实施计划即可，不强制单独建立 ADR。
