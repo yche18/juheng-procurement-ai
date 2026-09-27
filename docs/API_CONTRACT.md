@@ -13,7 +13,7 @@
 
 - Base URL：`/api`
 - Content Type：JSON；提交文件尚未实现。
-- 认证：无状态 HTTP Basic；只有 `/actuator/health` 公开。
+- 认证：无状态 HTTP Basic；客户端预先发送 `Authorization`，只有 `/actuator/health` 公开。认证失败返回统一 JSON 401，但不返回 `WWW-Authenticate` challenge，避免浏览器绕过 React 登录页弹出原生认证窗口。
 - 日期：`LocalDate` 使用 `YYYY-MM-DD`。
 - 时间：`Instant` 使用带 UTC/offset 的 ISO-8601 字符串。
 - UUID：JSON 字符串。

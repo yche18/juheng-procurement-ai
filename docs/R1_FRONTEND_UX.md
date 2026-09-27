@@ -17,6 +17,7 @@ R1 前端目标是让已经完成的后端能力形成可完整演示的业务�
 
 - 用户在 `/login` 输入用户名和密码。
 - 客户端只在运行时内存中保留 Basic Auth 凭据，并调用 `GET /api/current-user` 验证身份和取得完整角色集合。
+- 用户名或密码错误时停留在 `/login` 并显示页面内错误，不弹出浏览器原生 HTTP Basic 认证窗口。
 - 凭据不进入 Redux State、Redux DevTools、URL、日志、`localStorage` 或 `sessionStorage`。
 - 页面刷新会清空凭据并返回登录页，这是 R1 本地演示认证的已知限制，不伪装成生产登录体验。
 - `AUTHENTICATION_REQUIRED` 清理当前内存凭据和会话；`ACCESS_DENIED` 只显示无权状态，不自动退出。

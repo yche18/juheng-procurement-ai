@@ -85,14 +85,14 @@ class IdentitySecurityIntegrationTests
     }
 
     /**
-     * 验证缺失或错误凭据返回统一 401，且请求不会进入受保护的写操作。
+     * 验证缺失或错误凭据返回不触发浏览器认证窗口的统一 401，且请求不会进入受保护的写操作。
      */
     @Test
     void rejectsMissingAndInvalidCredentialsWithoutWriting() throws Exception
     {
         mockMvc.perform(post("/test/identity/write"))
                 .andExpect(status().isUnauthorized())
-                .andExpect(header().string("WWW-Authenticate", "Basic realm=\"Juheng\""))
+                .andExpect(header().doesNotExist("WWW-Authenticate"))
                 .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"))
                 .andExpect(jsonPath("$.path").value("/test/identity/write"))
@@ -101,6 +101,7 @@ class IdentitySecurityIntegrationTests
         MvcResult invalidCredentialsResult = mockMvc.perform(get("/api/current-user")
                         .with(httpBasic("demo-requester", "incorrect-password")))
                 .andExpect(status().isUnauthorized())
+                .andExpect(header().doesNotExist("WWW-Authenticate"))
                 .andExpect(jsonPath("$.code").value("AUTHENTICATION_REQUIRED"))
                 .andReturn();
 

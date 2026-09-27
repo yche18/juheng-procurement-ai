@@ -3,7 +3,7 @@
 - 文档状态：Baselined
 - 版本：1.7
 - 日期：2026-09-27
-- 当前实现状态：`FE-000`、`FE-010`～`FE-015` 与 `US-017` 已合并；`FE-016` 申请审计时间线已实现并进入评审；`FE-017` 真实端到端验收尚未实现
+- 当前实现状态：`FE-000`、`FE-010`～`FE-017` 与 `US-017` 已完成；R1 Demo Baseline 已成为 `v0.1.0` 候选，Tag/Release 尚待项目所有者确认
 
 ## 1. 架构目标
 
@@ -47,7 +47,9 @@ juheng-backend/
 
 R1 本地运行三个独立进程：PostgreSQL、Spring Boot 和 Vite Dev Server。Vite Dev Server 默认通过 Docker Compose 运行，源码以 bind mount 挂载，`node_modules` 和 npm cache 使用 Docker volume；这样本机不需要安装前端 Node/npm，也不会混用 Windows 与 Linux 原生依赖。容器内 Vite 将 `/api` 代理到宿主机 Spring Boot，Windows/macOS 使用 `host.docker.internal`，Linux 由 Compose 的 `host-gateway` 映射提供同名地址。浏览器仍通过 source map 调试源码，容器内文件监听使用 polling 保证 bind mount 修改可触发 HMR。
 
-该容器只用于本地开发和自动化检查，不代表生产部署方式。前端生产构建只验证静态产物；是否由 Spring Boot 托管、独立静态部署或通过反向代理发布留到 Demo/Deployment Story 决定。需要脱离 Docker 排查前端工具链时仍可原生运行，但必须使用仓库记录的 Node/npm 版本。
+该容器只用于本地开发和自动化检查，不代表生产部署方式。前端生产构建只验证静态产物；是否由 Spring Boot 托管、独立静态部署或通过反向代理发布留到 Deployment Story 决定。需要脱离 Docker 排查前端工具链时仍可原生运行，但必须使用仓库记录的 Node/npm 版本。
+
+`FE-017` 的 E2E 容器使用独立镜像安装固定 Playwright Chromium。为保持 `crypto.randomUUID` 与 `crypto.subtle` 的真实浏览器安全上下文语义，E2E 容器在自身 `127.0.0.1` 启动 Vite，而不是从浏览器访问 Docker 内部的不安全主机名；Vite 仍把 `/api` 代理到宿主机真实 Spring Boot，后端继续连接 PostgreSQL。全局 setup 在执行用例前同时等待 `/login` 返回 200 和未认证 `/api/current-user` 返回 401，结束时停止容器内 Vite 进程。
 
 `FE-000` 在开发镜像、`.nvmrc` 和 `package.json` 中固定并记录 Node/npm 运行版本，提交 `package-lock.json`。依赖使用明确版本并由 lockfile 保证可复现，不使用运行时 CDN。
 
@@ -295,7 +297,7 @@ Route Guard 不能接收 URL 或客户端参数中的角色声明，也不能把
 
 ### 12.3 `FE-017`
 
-才引入 Playwright，连接真实 Spring Boot 与 PostgreSQL，验证完整 R1 主路径和代表性失败路径。前端 E2E 不替代后端权限、事务、幂等和并发测试。
+已引入 Playwright，连接真实 Spring Boot 与 PostgreSQL，使用单个 Chromium worker 验证完整 R1 主路径和代表性失败路径。主流程和业务边界调用真实 API；Loading、Empty、网络失败和畸形通用错误响应使用浏览器路由注入，以获得确定且可重复的 UI 状态。HTML 报告写入 `frontend/playwright-report/`，失败截图、视频和 trace 写入 `frontend/test-results/`，两者均不提交 Git。前端 E2E 不替代后端权限、事务、幂等和并发测试。
 
 ## 13. 依赖引入规则
 

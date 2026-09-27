@@ -4,7 +4,6 @@ import io.github.yche18.juhengbackend.common.web.error.ApiErrorCode;
 import io.github.yche18.juhengbackend.common.web.error.ApiErrorResponseWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.AuthenticationEntryPoint;
@@ -17,7 +16,6 @@ import java.io.IOException;
 public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint
 {
 
-    private static final String BASIC_CHALLENGE = "Basic realm=\"Juheng\"";
     private final ApiErrorResponseWriter errorResponseWriter;
 
     /**
@@ -31,7 +29,7 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint
     }
 
     /**
-     * 返回 Basic challenge 和安全的统一未认证错误，不输出底层认证失败原因。
+     * 返回安全的统一未认证错误，不发送会触发浏览器原生认证窗口的 Basic challenge。
      *
      * @param request 当前 HTTP 请求
      * @param response 当前 HTTP 响应
@@ -44,7 +42,6 @@ public class ApiAuthenticationEntryPoint implements AuthenticationEntryPoint
             HttpServletResponse response,
             AuthenticationException authenticationException) throws IOException
     {
-        response.setHeader(HttpHeaders.WWW_AUTHENTICATE, BASIC_CHALLENGE);
         errorResponseWriter.write(
                 request,
                 response,

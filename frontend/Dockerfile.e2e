@@ -1,0 +1,13 @@
+FROM node:24.15.0-bookworm
+
+RUN npm install --global npm@11.6.2
+
+WORKDIR /workspace/frontend
+
+COPY package.json package-lock.json .npmrc ./
+RUN npm ci --include=optional \
+    && npx playwright install --with-deps chromium
+
+COPY . .
+
+CMD ["npm", "run", "test:e2e"]
