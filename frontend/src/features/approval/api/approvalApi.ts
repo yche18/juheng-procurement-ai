@@ -17,6 +17,7 @@ function decisionInvalidationTags({
     { type: 'ProcurementRequest' as const, id: requestId },
     { type: 'ProcurementRequest' as const, id: 'LIST' },
     { type: 'ApprovalDecision' as const, id: requestId },
+    { type: 'AuditTrail' as const, id: requestId },
   ]
 }
 

@@ -10,6 +10,7 @@ import {
 } from 'antd'
 import { Link, useParams } from 'react-router-dom'
 
+import { AuditTimeline } from '../../audit/public'
 import {
   getApiErrorMessage,
   isBackendErrorCode,
@@ -206,6 +207,9 @@ export function ProcurementRequestDetailPage() {
         <ProcurementRequestReadOnlyDetails request={request} />
       </Card>
       <Card title={'最终审批结果'}>{renderFinalDecision()}</Card>
+      <Card title={'申请审计时间线'}>
+        <AuditTimeline requestId={request.id} />
+      </Card>
     </div>
   )
 }

@@ -1,9 +1,9 @@
 # 据衡 R1 前端架构
 
 - 文档状态：Baselined
-- 版本：1.6
+- 版本：1.7
 - 日期：2026-09-27
-- 当前实现状态：`FE-000`、`FE-010`～`FE-014` 与 `US-017` 已合并；`FE-015` 人工批准或驳回已实现并进入评审；审计页面尚未实现
+- 当前实现状态：`FE-000`、`FE-010`～`FE-015` 与 `US-017` 已合并；`FE-016` 申请审计时间线已实现并进入评审；`FE-017` 真实端到端验收尚未实现
 
 ## 1. 架构目标
 
@@ -92,6 +92,7 @@ frontend/src/
 - `FE-010` 已按创建草稿用例建立 `procurement` 的 API、Model、Components 和 Page；其余采购能力及 `approval`、`audit` 在对应任务启动时创建。
 - `FE-014` 已建立实际使用的 `approval` API、Model、Components、Types 和 Pages；审批详情通过 `procurement/public.ts` 复用 Contract 明确嵌套的申请类型、响应校验和只读展示组件，不依赖申请人页面或内部状态。
 - `FE-015` 在同一 `approval` Feature 内增加决定命令、决定意图和确认面板；终态决定展示复用 `procurement/public.ts` 暴露的只读最终决定查询、Contract Guard 和展示组件，不复制服务端实体到普通 Redux Slice。
+- `FE-016` 建立只包含 Query、Contract Guard、展示映射和只读时间线组件的 `audit` Feature；申请和审批 Feature 通过 `audit/public.ts` 复用该组件，使用申请 ID 请求同一轨迹，不建立审计写 API 或独立后台页面。
 - 金额、时间和 URL 正整数解析在审批 Feature 成为第二个真实使用方后提升到 `shared/model`；共享层仍不包含申请归属、任务状态或审批规则。
 - `materials`、`analysis`、`agent` 只在 R2/R3 Story 到来时创建。
 - 空目录、空 Slice、占位 Endpoint 和“未来可能用到”的组件不提交。
@@ -248,6 +249,7 @@ type FrontendApiError =
 - 更新冲突时保留未提交表单；决定冲突时重新读取任务，不展示乐观成功。
 - 更新成功后使申请 ID 与列表 Tag 同时失效，并只展示服务端返回的新版本和重算金额。
 - 决定成功后使任务 ID/列表、申请 ID/列表和最终决定 Tag 失效；终态任务通过最终决定只读 Endpoint 恢复服务端事实，不把 Mutation 返回值当作可持久化状态。
+- 草稿修改、提交及决定成功后同时使申请 ID 对应的 `AuditTrail` Tag 失效；活跃详情页重新读取服务端已经排序的完整轨迹，前端不合并、补造或重新排序事件。
 - `CONCURRENT_MODIFICATION` 后禁止继续用旧版本保存；重新加载必须先确认将丢弃本地内容。`BUSINESS_CONFLICT` 刷新服务端状态并退出编辑。
 - 前端不使用乐观更新改变采购或审批终态。
 

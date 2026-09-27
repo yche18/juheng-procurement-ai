@@ -106,6 +106,8 @@ describe('ProcurementRequestDetailPage', () => {
       screen.queryByRole('button', { name: '提交审批' }),
     ).not.toBeInTheDocument()
     expect(decisionRequestCount).toBe(1)
+    expect(screen.getByText('申请审计时间线')).toBeInTheDocument()
+    expect(await screen.findByText('暂无审计事件。')).toBeInTheDocument()
   })
 
   it('does not request a final decision for a draft', async () => {

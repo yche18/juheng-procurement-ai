@@ -123,6 +123,28 @@ input {
   gap: 24px;
 }
 
+.audit-event {
+  min-width: 0;
+  padding-bottom: 8px;
+}
+
+.audit-event-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 20px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.audit-event-header .ant-typography {
+  margin: 0;
+}
+
+.audit-event .ant-descriptions-item-content {
+  overflow-wrap: anywhere;
+}
+
 .detail-section-title.ant-typography {
   margin-top: 28px;
 }

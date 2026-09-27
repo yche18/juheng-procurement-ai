@@ -10,6 +10,7 @@ export const baseApi = createApi({
     'ProcurementRequest',
     'ApprovalTask',
     'ApprovalDecision',
+    'AuditTrail',
   ],
   endpoints: () => ({}),
 })
