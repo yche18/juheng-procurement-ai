@@ -1,9 +1,9 @@
 # 据衡 R1 前端架构
 
 - 文档状态：Baselined
-- 版本：1.5
+- 版本：1.6
 - 日期：2026-09-27
-- 当前实现状态：`FE-000`、`FE-010`～`FE-013` 与 `US-017` 已合并；`FE-014` 审批任务列表与详情已实现并进入评审；决定操作和审计页面尚未实现
+- 当前实现状态：`FE-000`、`FE-010`～`FE-014` 与 `US-017` 已合并；`FE-015` 人工批准或驳回已实现并进入评审；审计页面尚未实现
 
 ## 1. 架构目标
 
@@ -91,6 +91,7 @@ frontend/src/
 - `FE-000` 只创建 `app`、`identity` 和实际需要的 `shared` 文件。
 - `FE-010` 已按创建草稿用例建立 `procurement` 的 API、Model、Components 和 Page；其余采购能力及 `approval`、`audit` 在对应任务启动时创建。
 - `FE-014` 已建立实际使用的 `approval` API、Model、Components、Types 和 Pages；审批详情通过 `procurement/public.ts` 复用 Contract 明确嵌套的申请类型、响应校验和只读展示组件，不依赖申请人页面或内部状态。
+- `FE-015` 在同一 `approval` Feature 内增加决定命令、决定意图和确认面板；终态决定展示复用 `procurement/public.ts` 暴露的只读最终决定查询、Contract Guard 和展示组件，不复制服务端实体到普通 Redux Slice。
 - 金额、时间和 URL 正整数解析在审批 Feature 成为第二个真实使用方后提升到 `shared/model`；共享层仍不包含申请归属、任务状态或审批规则。
 - `materials`、`analysis`、`agent` 只在 R2/R3 Story 到来时创建。
 - 空目录、空 Slice、占位 Endpoint 和“未来可能用到”的组件不提交。
@@ -239,12 +240,14 @@ type FrontendApiError =
 - 批准/驳回携带详情响应的 `approvalTaskVersion`。
 - 提交和决定操作使用 `crypto.randomUUID()` 生成不超过 64 字符的幂等键。
 - 一个键绑定调用者、操作、目标和载荷；相同意图网络重试复用，载荷或决定改变必须新建。
-- 提交意图只把非敏感的申请 ID、版本和幂等键保存在当前标签页的 `sessionStorage`，用于刷新或重新挂载后恢复同一意图；不得保存密码、Basic Auth 凭据或申请业务数据。
-- 提交成功、业务冲突或并发冲突后清除旧意图；网络结果不确定、审批路由失败和 `IDEMPOTENCY_IN_PROGRESS` 保留原键；`IDEMPOTENCY_CONFLICT` 停止提交，只有用户明确放弃后才允许创建新键。
+- 提交意图只把非敏感的申请 ID、版本和幂等键保存在当前标签页的 `sessionStorage`，用于刷新或重新挂载后恢复同一意图；决定意图只保存任务 ID、任务版本、操作、载荷指纹和幂等键，不保存批准意见、驳回原因、密码、Basic Auth 凭据或其他业务正文。
+- 申请提交成功、业务冲突或并发冲突后清除旧提交意图；网络结果不确定、审批路由失败和 `IDEMPOTENCY_IN_PROGRESS` 保留原键；`IDEMPOTENCY_CONFLICT` 停止提交，只有用户明确放弃后才允许创建新键。
+- 审批决定成功后清除决定意图；处理中、网络结果不确定和未能验证的成功响应保留原载荷与键。业务/并发冲突先刷新任务，幂等冲突、相反决定、意见或版本变化都不会静默创建新键，必须由用户明确放弃旧意图并基于最新任务重新确认。
 - Axios、RTK Query 和 Interceptor 都不自动重试 POST/PUT。
 - 请求进行中禁用重复动作，但按钮禁用不被描述为幂等保证。
 - 更新冲突时保留未提交表单；决定冲突时重新读取任务，不展示乐观成功。
 - 更新成功后使申请 ID 与列表 Tag 同时失效，并只展示服务端返回的新版本和重算金额。
+- 决定成功后使任务 ID/列表、申请 ID/列表和最终决定 Tag 失效；终态任务通过最终决定只读 Endpoint 恢复服务端事实，不把 Mutation 返回值当作可持久化状态。
 - `CONCURRENT_MODIFICATION` 后禁止继续用旧版本保存；重新加载必须先确认将丢弃本地内容。`BUSINESS_CONFLICT` 刷新服务端状态并退出编辑。
 - 前端不使用乐观更新改变采购或审批终态。
 

@@ -18,6 +18,7 @@ import {
 } from '../../../shared/api/apiError'
 import { formatDateTime } from '../../../shared/model/displayFormatters'
 import { useGetApprovalTaskQuery } from '../api/approvalApi'
+import { ApprovalDecisionPanel } from '../components/ApprovalDecisionPanel'
 import { ApprovalTaskStatusTag } from '../components/ApprovalTaskStatusTag'
 import { isApprovalTaskDetail } from '../model/approvalContract'
 import { isApprovalTaskStatus } from '../model/approvalPresentation'
@@ -147,6 +148,13 @@ export function ApprovalTaskDetailPage() {
         />
       </Card>
 
+      <Card title={'人工审批决定'}>
+        <ApprovalDecisionPanel
+          task={task}
+          refreshTask={() => taskQuery.refetch().unwrap()}
+        />
+      </Card>
+
       <Card title={'采购申请（只读）'}>
         <div className={'page-heading-row'}>
           <div>
@@ -161,7 +169,7 @@ export function ApprovalTaskDetailPage() {
           type={'info'}
           showIcon
           title={'审批任务详情只展示服务端申请事实'}
-          description={'本页面不允许直接修改采购申请；批准或驳回由后续独立任务交付。'}
+          description={'采购申请正文不可在审批页面修改；批准或驳回只能通过上方两个明确的人工命令执行。'}
         />
         <ProcurementRequestReadOnlyDetails request={request} />
       </Card>

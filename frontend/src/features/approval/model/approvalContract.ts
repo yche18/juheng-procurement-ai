@@ -1,5 +1,6 @@
 import { isProcurementRequestDetail } from '../../procurement/public'
 import type {
+  ApprovalDecisionResponse,
   ApprovalTaskDetailResponse,
   ApprovalTaskPageResponse,
   ApprovalTaskProcurementRequestSummary,
@@ -8,6 +9,28 @@ import type {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
+}
+
+export function isApprovalDecisionResponse(
+  value: unknown,
+): value is ApprovalDecisionResponse {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  const decision = value.decision
+  const taskStatus = value.approvalTaskStatus
+  return (
+    hasString(value, 'approvalTaskId') &&
+    (taskStatus === 'APPROVED' || taskStatus === 'REJECTED') &&
+    hasNonNegativeInteger(value, 'approvalTaskVersion') &&
+    hasString(value, 'decisionId') &&
+    (decision === 'APPROVED' || decision === 'REJECTED') &&
+    decision === taskStatus &&
+    hasString(value, 'actorId') &&
+    hasString(value, 'decidedAt') &&
+    (typeof value.comment === 'string' || value.comment === null)
+  )
 }
 
 function hasString(value: Record<string, unknown>, key: string): boolean {

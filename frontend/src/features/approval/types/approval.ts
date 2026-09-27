@@ -11,6 +11,8 @@ export const approvalTaskStatuses = [
 
 export type ApprovalTaskStatus = (typeof approvalTaskStatuses)[number]
 
+export type ApprovalDecision = 'APPROVED' | 'REJECTED'
+
 export interface ApprovalTaskProcurementRequestSummary {
   id: string
   businessNumber: string
@@ -47,6 +49,25 @@ export interface ApprovalTaskListQuery {
   page: number
   size: number
   status?: ApprovalTaskStatus
+}
+
+export interface ApprovalDecisionResponse {
+  approvalTaskId: string
+  approvalTaskStatus: ApprovalDecision
+  approvalTaskVersion: number
+  decisionId: string
+  decision: ApprovalDecision
+  actorId: string
+  decidedAt: string
+  comment: string | null
+}
+
+export interface DecideApprovalTaskMutationArgs {
+  taskId: string
+  requestId: string
+  approvalTaskVersion: number
+  comment: string | null
+  idempotencyKey: string
 }
 
 export type ApprovalTaskPageResponse =
