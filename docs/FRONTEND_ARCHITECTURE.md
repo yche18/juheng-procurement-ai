@@ -1,9 +1,9 @@
 # 据衡 R1 前端架构
 
 - 文档状态：Baselined
-- 版本：1.4
+- 版本：1.5
 - 日期：2026-09-27
-- 当前实现状态：`FE-000`、`FE-010`、`FE-011`、`FE-012` 与 `US-017` 已合并；`FE-013` 提交申请已实现并进入评审；审批和审计页面尚未实现
+- 当前实现状态：`FE-000`、`FE-010`～`FE-013` 与 `US-017` 已合并；`FE-014` 审批任务列表与详情已实现并进入评审；决定操作和审计页面尚未实现
 
 ## 1. 架构目标
 
@@ -90,6 +90,8 @@ frontend/src/
 
 - `FE-000` 只创建 `app`、`identity` 和实际需要的 `shared` 文件。
 - `FE-010` 已按创建草稿用例建立 `procurement` 的 API、Model、Components 和 Page；其余采购能力及 `approval`、`audit` 在对应任务启动时创建。
+- `FE-014` 已建立实际使用的 `approval` API、Model、Components、Types 和 Pages；审批详情通过 `procurement/public.ts` 复用 Contract 明确嵌套的申请类型、响应校验和只读展示组件，不依赖申请人页面或内部状态。
+- 金额、时间和 URL 正整数解析在审批 Feature 成为第二个真实使用方后提升到 `shared/model`；共享层仍不包含申请归属、任务状态或审批规则。
 - `materials`、`analysis`、`agent` 只在 R2/R3 Story 到来时创建。
 - 空目录、空 Slice、占位 Endpoint 和“未来可能用到”的组件不提交。
 

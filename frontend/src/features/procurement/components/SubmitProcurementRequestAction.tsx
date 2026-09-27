@@ -12,12 +12,12 @@ import {
   getApiErrorMessage,
   isBackendErrorCode,
 } from '../../../shared/api/apiError'
+import { formatMoney } from '../../../shared/model/displayFormatters'
 import { useSubmitProcurementRequestMutation } from '../api/procurementApi'
 import {
   isProcurementRequestDetail,
   isSubmitProcurementRequestResponse,
 } from '../model/procurementContract'
-import { formatMoney } from '../model/procurementPresentation'
 import {
   clearSubmissionIntent,
   getOrCreateSubmissionIntent,

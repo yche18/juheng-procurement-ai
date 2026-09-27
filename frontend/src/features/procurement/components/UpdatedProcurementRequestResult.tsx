@@ -2,10 +2,8 @@ import { Button, Card, Descriptions, Result, Space, Table, Typography } from 'an
 import type { ColumnsType } from 'antd/es/table'
 import { Link } from 'react-router-dom'
 
-import {
-  formatMoney,
-  getCategoryDisplay,
-} from '../model/procurementPresentation'
+import { formatMoney } from '../../../shared/model/displayFormatters'
+import { getCategoryDisplay } from '../model/procurementPresentation'
 import type {
   ProcurementItemResponse,
   ProcurementRequestDetailResponse,

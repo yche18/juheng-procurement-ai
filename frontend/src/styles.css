@@ -105,7 +105,8 @@ input {
   margin-top: 0;
 }
 
-.request-list-toolbar {
+.request-list-toolbar,
+.list-toolbar {
   margin-bottom: 20px;
 }
 
