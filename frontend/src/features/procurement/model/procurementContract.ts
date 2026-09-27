@@ -4,6 +4,7 @@ import type {
   ProcurementItemResponse,
   ProcurementRequestDetailResponse,
   ProcurementRequestSummaryResponse,
+  SubmitProcurementRequestResponse,
 } from '../types/procurement'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -114,5 +115,25 @@ export function isFinalApprovalDecision(
     hasString(value, 'decision') &&
     hasString(value, 'decidedAt') &&
     (typeof value.comment === 'string' || value.comment === null)
+  )
+}
+
+export function isSubmitProcurementRequestResponse(
+  value: unknown,
+): value is SubmitProcurementRequestResponse {
+  if (!isRecord(value)) {
+    return false
+  }
+
+  const requestVersion = value.requestVersion
+
+  return (
+    hasString(value, 'requestId') &&
+    value.requestStatus === 'SUBMITTED' &&
+    typeof requestVersion === 'number' &&
+    Number.isInteger(requestVersion) &&
+    requestVersion >= 0 &&
+    hasString(value, 'approvalTaskId') &&
+    value.approvalTaskStatus === 'PENDING'
   )
 }

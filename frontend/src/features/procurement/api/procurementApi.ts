@@ -7,6 +7,8 @@ import type {
   ProcurementRequestDetailResponse,
   ProcurementRequestListQuery,
   ProcurementRequestSummaryResponse,
+  SubmitProcurementRequestMutationArgs,
+  SubmitProcurementRequestResponse,
   UpdateProcurementRequestMutationArgs,
 } from '../types/procurement'
 
@@ -87,6 +89,24 @@ export const procurementApi = baseApi.injectEndpoints({
             ]
           : [],
     }),
+    submitProcurementRequest: builder.mutation<
+      SubmitProcurementRequestResponse,
+      SubmitProcurementRequestMutationArgs
+    >({
+      query: ({ requestId, version, idempotencyKey }) => ({
+        url: `procurement-requests/${requestId}/submit`,
+        method: 'POST',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        data: { version },
+      }),
+      invalidatesTags: (result, _error, { requestId }) =>
+        result
+          ? [
+              { type: 'ProcurementRequest', id: requestId },
+              { type: 'ProcurementRequest', id: 'LIST' },
+            ]
+          : [],
+    }),
   }),
 })
 
@@ -95,5 +115,6 @@ export const {
   useGetFinalApprovalDecisionQuery,
   useGetProcurementRequestQuery,
   useGetProcurementRequestsQuery,
+  useSubmitProcurementRequestMutation,
   useUpdateProcurementRequestMutation,
 } = procurementApi

@@ -23,6 +23,7 @@ import {
   useGetProcurementRequestQuery,
 } from '../api/procurementApi'
 import { ProcurementStatusTag } from '../components/ProcurementStatusTag'
+import { SubmitProcurementRequestAction } from '../components/SubmitProcurementRequestAction'
 import {
   isFinalApprovalDecision,
   isProcurementRequestDetail,
@@ -201,7 +202,7 @@ export function ProcurementRequestDetailPage() {
     )
   }
 
-  if (requestQuery.error) {
+  if (requestQuery.error && !request) {
     const notFound = isBackendErrorCode(
       requestQuery.error,
       'RESOURCE_NOT_FOUND',
@@ -261,12 +262,16 @@ export function ProcurementRequestDetailPage() {
           </div>
           <Space wrap>
             {request.status === 'DRAFT' ? (
-              <Button type="primary">
+              <Button>
                 <Link to={`/requester/requests/${request.id}/edit`}>
                   编辑草稿
                 </Link>
               </Button>
             ) : null}
+            <SubmitProcurementRequestAction
+              request={request}
+              refreshRequest={() => requestQuery.refetch().unwrap()}
+            />
             <Button>
               <Link to="/requester/requests">返回我的申请</Link>
             </Button>

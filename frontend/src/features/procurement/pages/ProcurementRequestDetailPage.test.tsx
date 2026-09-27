@@ -102,6 +102,9 @@ describe('ProcurementRequestDetailPage', () => {
     expect(
       screen.queryByRole('link', { name: '编辑草稿' }),
     ).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: '提交审批' }),
+    ).not.toBeInTheDocument()
     expect(decisionRequestCount).toBe(1)
   })
 
@@ -132,6 +135,7 @@ describe('ProcurementRequestDetailPage', () => {
       'href',
       `/requester/requests/${requestId}/edit`,
     )
+    expect(screen.getByRole('button', { name: '提交审批' })).toBeEnabled()
     expect(decisionRequestCount).toBe(0)
   })
 
