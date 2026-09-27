@@ -32,6 +32,22 @@ services:
       - juheng-frontend-node-modules:/workspace/frontend/node_modules
       - juheng-frontend-npm-cache:/root/.npm
 
+  e2e:
+    profiles: ["e2e"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.e2e
+    init: true
+    environment:
+      JUHENG_E2E_BASE_URL: http://127.0.0.1:5173
+      JUHENG_E2E_START_FRONTEND: "true"
+      JUHENG_FRONTEND_PROXY_TARGET: ${JUHENG_FRONTEND_PROXY_TARGET:-http://host.docker.internal:8080}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./frontend/playwright-report:/workspace/frontend/playwright-report
+      - ./frontend/test-results:/workspace/frontend/test-results
+
 volumes:
   juheng-postgres-data:
   juheng-frontend-node-modules:

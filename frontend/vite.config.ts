@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
+      allowedHosts: ['frontend'],
       watch: usePolling ? { usePolling: true } : undefined,
       proxy: {
         '/api': {
@@ -22,6 +23,8 @@ export default defineConfig(({ mode }) => {
       },
     },
     test: {
+      include: ['src/**/*.test.{ts,tsx}'],
+      testTimeout: 10_000,
       environment: 'jsdom',
       environmentOptions: {
         jsdom: {

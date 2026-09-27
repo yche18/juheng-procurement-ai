@@ -1,8 +1,8 @@
 # 据衡采购授权与证据决策平台
 
-据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端核心已完成服务启动、PostgreSQL/Flyway、统一 API 错误契约、本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回、最终决定读取和授权审计轨迹。R1 Release 尚未完成，当前正在交付 React 前端和真实端到端 Demo Baseline；这些全部验收后才进入 R2 证据智能。
+据衡是一个企业采购证据决策与授权平台。本仓库按 User Story 逐步交付；R1 Spring Boot 后端、React 前端和真实端到端 Demo Baseline 已完成，覆盖本地演示身份、采购申请创建/查询/修改/提交、审批任务查询、人工批准/驳回、最终决定读取和授权审计轨迹。当前代码可作为 `v0.1.0` 候选基线；是否创建 Tag 或发布 Release 仍需项目所有者在合并后确认，尚未自动发布。
 
-R1 前端的 `FE-000` 基础骨架、演示登录，以及 `FE-010`～`FE-015` 申请人和人工审批流程已经合并；`FE-016` 申请审计时间线已实现并进入评审。当前申请人可以创建、查看、编辑和提交采购申请；审批人可以分页筛选服务端分配给自己的任务、查看完整申请，并对待审批任务作出批准或驳回决定；双方都可以在授权详情上下文中查看同一申请的只读审计轨迹。设计基线见：
+R1 前端的 `FE-000`、`FE-010`～`FE-017` 已完成。当前申请人可以创建、查看、编辑和提交采购申请；审批人可以分页筛选服务端分配给自己的任务、查看完整申请，并对待审批任务作出批准或驳回决定；双方都可以在授权详情上下文中查看同一申请的只读审计轨迹。真实浏览器验收记录见 [`docs/R1_DEMO_ACCEPTANCE.md`](docs/R1_DEMO_ACCEPTANCE.md)，设计基线见：
 
 - [`docs/R1_FRONTEND_UX.md`](docs/R1_FRONTEND_UX.md)
 - [`docs/API_CONTRACT.md`](docs/API_CONTRACT.md)
@@ -130,6 +130,42 @@ npm --version
 如果此前使用不兼容的 Node.js 安装依赖，启动时可能出现 Rolldown `Cannot find native binding`。Docker 启动方式会在 Linux 容器中重建并隔离依赖，无需删除本机的 `package-lock.json` 或 `node_modules`。继续原生运行时，应切换到 Node.js 24.15.x 后，在 `frontend/` 目录重新执行 `npm ci --include=optional`；项目通过 `.npmrc` 对 Node/npm 版本进行严格校验，并确保安装平台原生的 optional dependency。
 
 打开 `http://localhost:5173/login`，使用下节列出的演示身份登录。HTTP Basic 凭据只保存在当前页面运行时内存；刷新或关闭页面后必须重新登录。
+
+## 从空环境复现 R1 Demo Baseline
+
+从全新检出开始，先按“本地要求”准备 JDK 17 和 Docker。以下命令均在仓库根目录执行；首次运行需要联网下载 Maven、npm、Docker 和 Playwright Chromium 依赖。
+
+1. 启动 PostgreSQL，并等待其状态为 `healthy`：
+
+   ```shell
+   docker compose up -d postgres
+   docker compose ps
+   ```
+
+2. 在独立终端启动 Spring Boot。Flyway 会在空数据库上依次应用 V1～V6：
+
+   ```powershell
+   .\mvnw.cmd spring-boot:run
+   ```
+
+   macOS / Linux 使用 `./mvnw spring-boot:run`。
+
+3. 需要人工演示时，在另一个终端启动前端并打开 `http://localhost:5173/login`：
+
+   ```shell
+   docker compose up --build frontend
+   ```
+
+4. 需要执行可重复浏览器验收时，保持 Spring Boot 和 PostgreSQL 运行。E2E 容器会在自身的 `127.0.0.1` 启动同一份 Vite 前端，以获得与浏览器访问 localhost 相同的 Web Crypto 语义，再通过 Vite 代理连接宿主机上的真实后端：
+
+   ```shell
+   docker compose --profile e2e build e2e
+   docker compose --profile e2e run --rm e2e
+   ```
+
+   运行结果写入 `frontend/playwright-report/`；失败时的截图、视频和 trace 写入 `frontend/test-results/`。两者均不提交 Git。E2E 使用合成身份与合成业务数据，但会在当前本地 PostgreSQL 中留下带 `FE017-` 前缀的验收申请；它不会自动清空或删除数据库。
+
+如果明确需要重新创建空白的本地数据库，可以先停止环境，再由操作者自行执行 `docker compose down --volumes`。该命令会永久删除当前 Compose PostgreSQL volume 中的全部本地数据，不应在需要保留数据时使用。
 
 ## 本地演示身份
 
@@ -482,4 +518,15 @@ macOS / Linux：
 docker compose run --rm frontend npm run check
 ```
 
-容器入口会先按照 lockfile 安装依赖，再由 `npm run check` 顺序执行 lint、测试和生产构建。需要单独执行某项检查时，可以把末尾命令替换为 `npm run lint`、`npm run typecheck`、`npm test` 或 `npm run build`。前端单元与组件测试使用 Vitest、React Testing Library 和 MSW，不需要真实后端或公网；真实浏览器端到端测试将在 `FE-017` 引入。
+容器入口会先按照 lockfile 安装依赖，再由 `npm run check` 顺序执行 lint、测试和生产构建。需要单独执行某项检查时，可以把末尾命令替换为 `npm run lint`、`npm run typecheck`、`npm test` 或 `npm run build`。前端单元与组件测试使用 Vitest、React Testing Library 和 MSW，不需要真实后端或公网。
+
+### 浏览器端到端验收
+
+先按“从空环境复现 R1 Demo Baseline”启动 PostgreSQL 和 Spring Boot，再执行：
+
+```shell
+docker compose --profile e2e build e2e
+docker compose --profile e2e run --rm e2e
+```
+
+Playwright 固定使用一个 Chromium worker，避免共享演示身份和数据库造成用例互相污染。业务主流程、认证、授权、版本、幂等和状态边界调用真实后端；只有 Loading、Empty、网络失败与畸形错误响应等确定性 UI 状态使用浏览器路由注入。完整验收矩阵和当前结果见 [`docs/R1_DEMO_ACCEPTANCE.md`](docs/R1_DEMO_ACCEPTANCE.md)。
