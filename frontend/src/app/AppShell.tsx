@@ -12,6 +12,8 @@ export function AppShell() {
   const dispatch = useAppDispatch()
   const currentUser = useAppSelector((state) => state.session.currentUser)
   const navigate = useNavigate()
+  const isRequester = currentUser?.roles.includes('REQUESTER') ?? false
+  const isApprover = currentUser?.roles.includes('APPROVER') ?? false
 
   const handleLogout = () => {
     clearCredentials()
@@ -21,32 +23,39 @@ export function AppShell() {
   }
 
   return (
-    <Layout className="app-layout">
-      <Header className="app-header">
-        <div className="app-brand-and-nav">
-          <Typography.Title level={3} className="app-title">
+    <Layout className={'app-layout'}>
+      <Header className={'app-header'}>
+        <div className={'app-brand-and-nav'}>
+          <Typography.Title level={3} className={'app-title'}>
             据衡
           </Typography.Title>
-          {currentUser?.roles.includes('REQUESTER') ? (
-            <Space>
-              <Link className="app-nav-link" to="/requester/requests">
-                我的申请
+          <Space wrap>
+            {isRequester ? (
+              <>
+                <Link className={'app-nav-link'} to={'/requester/requests'}>
+                  我的申请
+                </Link>
+                <Link className={'app-nav-link'} to={'/requester/requests/new'}>
+                  创建申请
+                </Link>
+              </>
+            ) : null}
+            {isApprover ? (
+              <Link className={'app-nav-link'} to={'/approver/tasks'}>
+                审批任务
               </Link>
-              <Link className="app-nav-link" to="/requester/requests/new">
-                创建申请
-              </Link>
-            </Space>
-          ) : null}
+            ) : null}
+          </Space>
         </div>
         <Space wrap>
-          <Typography.Text className="header-user">
+          <Typography.Text className={'header-user'}>
             {currentUser?.userId}
           </Typography.Text>
           {currentUser?.roles.map((role) => <Tag key={role}>{role}</Tag>)}
           <Button onClick={handleLogout}>退出</Button>
         </Space>
       </Header>
-      <Content className="app-content">
+      <Content className={'app-content'}>
         <Outlet />
       </Content>
     </Layout>

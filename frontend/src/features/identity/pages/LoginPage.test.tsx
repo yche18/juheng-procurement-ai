@@ -23,6 +23,12 @@ describe('LoginPage', () => {
     expect(screen.getByText('demo-multi-role')).toBeInTheDocument()
     expect(screen.getByText('REQUESTER')).toBeInTheDocument()
     expect(screen.getByText('APPROVER')).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: '我的申请' }),
+    ).toHaveAttribute('href', '/requester/requests')
+    expect(
+      screen.getByRole('link', { name: '审批任务' }),
+    ).toHaveAttribute('href', '/approver/tasks')
 
     const serializedState = JSON.stringify(store.getState())
     expect(serializedState).not.toContain('juheng-local')

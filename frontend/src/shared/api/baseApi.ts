@@ -5,6 +5,11 @@ import { axiosBaseQuery } from './axiosBaseQuery'
 export const baseApi = createApi({
   reducerPath: 'api',
   baseQuery: axiosBaseQuery(),
-  tagTypes: ['CurrentUser', 'ProcurementRequest', 'ApprovalDecision'],
+  tagTypes: [
+    'CurrentUser',
+    'ProcurementRequest',
+    'ApprovalTask',
+    'ApprovalDecision',
+  ],
   endpoints: () => ({}),
 })

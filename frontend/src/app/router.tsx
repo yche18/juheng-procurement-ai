@@ -3,6 +3,8 @@ import {
   type RouteObject,
 } from 'react-router-dom'
 
+import { ApprovalTaskDetailPage } from '../features/approval/pages/ApprovalTaskDetailPage'
+import { ApprovalTaskListPage } from '../features/approval/pages/ApprovalTaskListPage'
 import { RequireSession } from '../features/identity/components/RequireSession'
 import { RequireRole } from '../features/identity/components/RequireRole'
 import { LoginPage } from '../features/identity/pages/LoginPage'
@@ -64,6 +66,22 @@ export const appRoutes: RouteObject[] = [
         element: (
           <RequireRole allowedRoles={['REQUESTER']}>
             <ProcurementRequestDetailPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'approver/tasks',
+        element: (
+          <RequireRole allowedRoles={['APPROVER']}>
+            <ApprovalTaskListPage />
+          </RequireRole>
+        ),
+      },
+      {
+        path: 'approver/tasks/:taskId',
+        element: (
+          <RequireRole allowedRoles={['APPROVER']}>
+            <ApprovalTaskDetailPage />
           </RequireRole>
         ),
       },
