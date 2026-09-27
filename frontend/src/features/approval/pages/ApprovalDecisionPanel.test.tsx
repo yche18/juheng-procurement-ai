@@ -16,6 +16,8 @@ const approveUrl = `${taskUrl}/approve`
 const rejectUrl = `${taskUrl}/reject`
 const finalDecisionUrl =
   `${API_ORIGIN}/api/procurement-requests/${requestId}/approval-decision`
+const auditUrl =
+  `${API_ORIGIN}/api/procurement-requests/${requestId}/audit-events`
 
 function approverStore() {
   const store = createAppStore()
@@ -174,6 +176,7 @@ describe('ApprovalDecisionPanel', () => {
     let approved = false
     let taskRequestCount = 0
     let finalDecisionRequestCount = 0
+    let auditRequestCount = 0
     let requestBody: unknown
     let idempotencyKey: string | null = null
     server.use(
@@ -193,9 +196,14 @@ describe('ApprovalDecisionPanel', () => {
         finalDecisionRequestCount += 1
         return HttpResponse.json(finalDecision('APPROVED', '同意采购'))
       }),
+      http.get(auditUrl, () => {
+        auditRequestCount += 1
+        return HttpResponse.json({ procurementRequestId: requestId, events: [] })
+      }),
     )
 
     await renderPending()
+    await waitFor(() => expect(auditRequestCount).toBe(1))
     await approveWithComment(user, '  同意采购  ')
 
     expect(await screen.findByText('申请已批准')).toBeInTheDocument()
@@ -206,6 +214,7 @@ describe('ApprovalDecisionPanel', () => {
     expect(idempotencyKey).toMatch(/^.{1,64}$/)
     await waitFor(() => expect(taskRequestCount).toBeGreaterThanOrEqual(2))
     await waitFor(() => expect(finalDecisionRequestCount).toBe(1))
+    await waitFor(() => expect(auditRequestCount).toBeGreaterThanOrEqual(2))
 
     const closeButton = screen.queryByRole('button', { name: '关闭' })
     if (closeButton) {

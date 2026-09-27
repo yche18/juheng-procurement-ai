@@ -13,6 +13,7 @@ const requestId = '10000000-0000-0000-0000-000000000001'
 const approvalTaskId = '30000000-0000-0000-0000-000000000001'
 const detailUrl = `${API_ORIGIN}/api/procurement-requests/${requestId}`
 const submitUrl = `${detailUrl}/submit`
+const auditUrl = `${detailUrl}/audit-events`
 
 function requesterStore() {
   const store = createAppStore()
@@ -101,6 +102,7 @@ describe('SubmitProcurementRequest', () => {
     const user = userEvent.setup()
     let submitted = false
     let detailRequestCount = 0
+    let auditRequestCount = 0
     let requestBody: unknown
     let idempotencyKey: string | null = null
     server.use(
@@ -116,9 +118,14 @@ describe('SubmitProcurementRequest', () => {
         submitted = true
         return HttpResponse.json(submittedResponse())
       }),
+      http.get(auditUrl, () => {
+        auditRequestCount += 1
+        return HttpResponse.json({ procurementRequestId: requestId, events: [] })
+      }),
     )
 
     await renderDraft()
+    await waitFor(() => expect(auditRequestCount).toBe(1))
     await openAndConfirm(user)
 
     expect(await screen.findByText('审批任务已创建')).toBeInTheDocument()
@@ -127,6 +134,7 @@ describe('SubmitProcurementRequest', () => {
     expect(requestBody).toEqual({ version: 3 })
     expect(idempotencyKey).toMatch(/^.{1,64}$/)
     await waitFor(() => expect(detailRequestCount).toBeGreaterThanOrEqual(2))
+    await waitFor(() => expect(auditRequestCount).toBeGreaterThanOrEqual(2))
 
     await user.click(screen.getByRole('button', { name: /关.*闭/ }))
     expect(await screen.findByText('待审批（SUBMITTED）')).toBeInTheDocument()

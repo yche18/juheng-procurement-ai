@@ -93,6 +93,8 @@ describe('ApprovalTaskDetailPage', () => {
     ).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: '批准申请' })).toBeEnabled()
     expect(screen.getByRole('button', { name: '驳回申请' })).toBeEnabled()
+    expect(screen.getByText('申请审计时间线')).toBeInTheDocument()
+    expect(await screen.findByText('暂无审计事件。')).toBeInTheDocument()
   })
 
   it('uses one safe not-found state for a missing or unassigned task', async () => {

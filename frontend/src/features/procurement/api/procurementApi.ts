@@ -86,6 +86,7 @@ export const procurementApi = baseApi.injectEndpoints({
           ? [
               { type: 'ProcurementRequest', id: result.id },
               { type: 'ProcurementRequest', id: 'LIST' },
+              { type: 'AuditTrail', id: result.id },
             ]
           : [],
     }),
@@ -104,6 +105,7 @@ export const procurementApi = baseApi.injectEndpoints({
           ? [
               { type: 'ProcurementRequest', id: requestId },
               { type: 'ProcurementRequest', id: 'LIST' },
+              { type: 'AuditTrail', id: requestId },
             ]
           : [],
     }),

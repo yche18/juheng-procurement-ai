@@ -9,4 +9,12 @@ export const handlers = [
       roles: ['APPROVER', 'REQUESTER'],
     }),
   ),
+  http.get(
+    `${API_ORIGIN}/api/procurement-requests/:requestId/audit-events`,
+    ({ params }) =>
+      HttpResponse.json({
+        procurementRequestId: String(params.requestId),
+        events: [],
+      }),
+  ),
 ]

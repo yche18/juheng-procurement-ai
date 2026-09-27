@@ -9,6 +9,7 @@ import {
 } from 'antd'
 import { Link, useParams } from 'react-router-dom'
 
+import { AuditTimeline } from '../../audit/public'
 import {
   ProcurementRequestReadOnlyDetails,
 } from '../../procurement/public'
@@ -172,6 +173,10 @@ export function ApprovalTaskDetailPage() {
           description={'采购申请正文不可在审批页面修改；批准或驳回只能通过上方两个明确的人工命令执行。'}
         />
         <ProcurementRequestReadOnlyDetails request={request} />
+      </Card>
+
+      <Card title={'申请审计时间线'}>
+        <AuditTimeline requestId={request.id} />
       </Card>
     </div>
   )
