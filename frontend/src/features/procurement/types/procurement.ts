@@ -54,6 +54,24 @@ export interface UpdateProcurementRequestMutationArgs {
   body: UpdateProcurementRequestRequest
 }
 
+export interface SubmitProcurementRequestRequest {
+  version: number
+}
+
+export interface SubmitProcurementRequestResponse {
+  requestId: string
+  requestStatus: 'SUBMITTED'
+  requestVersion: number
+  approvalTaskId: string
+  approvalTaskStatus: 'PENDING'
+}
+
+export interface SubmitProcurementRequestMutationArgs {
+  requestId: string
+  version: number
+  idempotencyKey: string
+}
+
 export interface ProcurementItemResponse {
   id: string
   lineNumber: number
