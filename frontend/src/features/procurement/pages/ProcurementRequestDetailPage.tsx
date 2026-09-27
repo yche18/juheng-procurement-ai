@@ -2,12 +2,10 @@ import {
   Alert,
   Button,
   Card,
-  Descriptions,
   Empty,
   Result,
   Skeleton,
   Space,
-  Tag,
   Typography,
 } from 'antd'
 import { Link, useParams } from 'react-router-dom'
@@ -16,21 +14,18 @@ import {
   getApiErrorMessage,
   isBackendErrorCode,
 } from '../../../shared/api/apiError'
-import { formatDateTime } from '../../../shared/model/displayFormatters'
 import {
   useGetFinalApprovalDecisionQuery,
   useGetProcurementRequestQuery,
 } from '../api/procurementApi'
+import { FinalApprovalDecisionDetails } from '../components/FinalApprovalDecisionDetails'
 import { ProcurementRequestReadOnlyDetails } from '../components/ProcurementRequestReadOnlyDetails'
 import { SubmitProcurementRequestAction } from '../components/SubmitProcurementRequestAction'
 import {
   isFinalApprovalDecision,
   isProcurementRequestDetail,
 } from '../model/procurementContract'
-import {
-  getDecisionDisplay,
-  isProcurementRequestStatus,
-} from '../model/procurementPresentation'
+import { isProcurementRequestStatus } from '../model/procurementPresentation'
 
 export function ProcurementRequestDetailPage() {
   const { requestId = '' } = useParams()
@@ -115,47 +110,12 @@ export function ProcurementRequestDetailPage() {
       )
     }
 
-    const decisionDisplay = getDecisionDisplay(decision.decision)
-    const decisionConflictsWithStatus =
-      decisionDisplay.known && decision.decision !== request.status
-
     return (
-      <>
-        {decisionConflictsWithStatus ? (
-          <Alert
-            className={'page-alert'}
-            type={'warning'}
-            showIcon
-            title={'申请状态与最终决定不一致'}
-            description={'页面分别展示服务端返回的两个事实，不会静默改写其中任何一个。'}
-          />
-        ) : null}
-        <Descriptions
-          bordered
-          column={{ xs: 1, sm: 2 }}
-          items={[
-            {
-              key: 'decision',
-              label: '最终决定',
-              children: (
-                <Tag color={decisionDisplay.color}>{decisionDisplay.label}</Tag>
-              ),
-            },
-            { key: 'actorId', label: '操作人', children: decision.actorId },
-            {
-              key: 'decidedAt',
-              label: '决定时间',
-              children: formatDateTime(decision.decidedAt),
-            },
-            {
-              key: 'comment',
-              label: '审批意见',
-              children: decision.comment || '无',
-              span: 2,
-            },
-          ]}
-        />
-      </>
+      <FinalApprovalDecisionDetails
+        decision={decision}
+        expectedStatus={request.status}
+        statusFactLabel={'申请状态'}
+      />
     )
   }
 
